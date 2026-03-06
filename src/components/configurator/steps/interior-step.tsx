@@ -3,6 +3,7 @@
 import { OptionCard } from "@/components/configurator/option-card";
 import { OptionGrid } from "@/components/configurator/option-grid";
 import { interiorOptions } from "@/lib/configurator/mock-data";
+import { getInteriorDisabledReason } from "@/lib/configurator/rules";
 import { useConfigurationStore } from "@/store/configuration-store";
 
 export function InteriorStep() {
@@ -18,7 +19,7 @@ export function InteriorStep() {
 
       <OptionGrid columns={2}>
         {interiorOptions.map((option) => {
-          const isDisabled = option.disabledTrims?.includes(configuration.trimId ?? "") ?? false;
+          const disabledReason = getInteriorDisabledReason(configuration, option.id);
 
           return (
             <OptionCard
@@ -29,8 +30,8 @@ export function InteriorStep() {
               color={option.color}
               isSelected={configuration.interiorOptions.includes(option.id)}
               onClick={() => toggleInteriorOption(option.id)}
-              isDisabled={isDisabled}
-              disabledReason={isDisabled ? "Not available with this trim" : undefined}
+              isDisabled={Boolean(disabledReason)}
+              disabledReason={disabledReason}
             />
           );
         })}

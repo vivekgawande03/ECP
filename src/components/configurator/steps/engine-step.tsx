@@ -3,6 +3,7 @@
 import { OptionCard } from "@/components/configurator/option-card";
 import { OptionGrid } from "@/components/configurator/option-grid";
 import { engines } from "@/lib/configurator/mock-data";
+import { getEngineDisabledReason } from "@/lib/configurator/rules";
 import { useConfigurationStore } from "@/store/configuration-store";
 
 export function EngineStep() {
@@ -22,14 +23,22 @@ export function EngineStep() {
 
       <OptionGrid columns={2}>
         {availableEngines.map((engine) => (
-          <OptionCard
-            key={engine.id}
-            name={engine.name}
-            description={`${engine.horsePower} hp • ${engine.torque} Nm torque`}
-            price={engine.priceModifier}
-            isSelected={configuration.engineId === engine.id}
-            onClick={() => selectEngine(engine.id)}
-          />
+          (() => {
+            const disabledReason = getEngineDisabledReason(configuration, engine.id);
+
+            return (
+              <OptionCard
+                key={engine.id}
+                name={engine.name}
+                description={`${engine.horsePower} hp • ${engine.torque} Nm torque`}
+                price={engine.priceModifier}
+                isSelected={configuration.engineId === engine.id}
+                onClick={() => selectEngine(engine.id)}
+                isDisabled={Boolean(disabledReason)}
+                disabledReason={disabledReason}
+              />
+            );
+          })()
         ))}
       </OptionGrid>
 

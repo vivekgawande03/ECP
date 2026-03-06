@@ -93,6 +93,13 @@ export function ReviewStep() {
       </div>
 
       <Card className="border-cyan-500/30 bg-gradient-to-r from-cyan-500/10 to-cyan-500/5 p-6">
+        {price.dealerDiscount > 0 ? (
+          <div className="mb-4 flex items-center justify-between border-b border-slate-700/60 pb-4 text-sm">
+            <span className="text-slate-300">{price.dealerDiscountLabel ?? "Dealer incentive"}</span>
+            <span className="font-semibold text-emerald-300">-{formatCurrency(price.dealerDiscount)}</span>
+          </div>
+        ) : null}
+
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="mb-1 text-xs uppercase tracking-wider text-slate-400">Estimated total</p>

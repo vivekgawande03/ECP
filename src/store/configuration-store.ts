@@ -14,6 +14,10 @@ import {
   transmissions,
   trims,
 } from "@/lib/configurator/mock-data";
+import {
+  getDealerIncentive,
+  normalizeConfigurationWithRules,
+} from "@/lib/configurator/rules";
 import type {
   Configuration,
   DealerId,
@@ -64,56 +68,70 @@ function createInitialConfiguration(): Configuration {
   };
 }
 
-function filterDisabledIds(ids: string[], trimId: string | null, resolver: (id: string) => { disabledTrims?: string[] } | undefined) {
-  return ids.filter((id) => !resolver(id)?.disabledTrims?.includes(trimId ?? ""));
-}
-
 export const useConfigurationStore = create<ConfigurationStore>((set, get) => ({
   configuration: createInitialConfiguration(),
   currentStep: 0,
   warnings: [],
 
   setMarket: (market) => {
-    set((state) => ({
-      configuration: {
+    set((state) => {
+      const result = normalizeConfigurationWithRules({
         ...state.configuration,
         market,
-      },
-    }));
+      });
+
+      return {
+        configuration: result.configuration,
+        warnings: result.warnings,
+      };
+    });
   },
 
   setDealer: (dealer) => {
-    set((state) => ({
-      configuration: {
+    set((state) => {
+      const result = normalizeConfigurationWithRules({
         ...state.configuration,
         dealer,
-      },
-    }));
+      });
+
+      return {
+        configuration: result.configuration,
+        warnings: result.warnings,
+      };
+    });
   },
 
   selectModel: (modelId) => {
-    set((state) => ({
-      configuration: {
+    set((state) => {
+      const result = normalizeConfigurationWithRules({
         ...state.configuration,
         modelId,
         engineId: null,
         transmissionId: null,
         trimId: null,
-      },
-      warnings: [],
-    }));
+      });
+
+      return {
+        configuration: result.configuration,
+        warnings: result.warnings,
+      };
+    });
   },
 
   selectEngine: (engineId) => {
-    set((state) => ({
-      configuration: {
+    set((state) => {
+      const result = normalizeConfigurationWithRules({
         ...state.configuration,
         engineId,
         transmissionId: null,
         trimId: null,
-      },
-      warnings: [],
-    }));
+      });
+
+      return {
+        configuration: result.configuration,
+        warnings: result.warnings,
+      };
+    });
   },
 
   selectTransmission: (transmissionId) => {
@@ -122,27 +140,22 @@ export const useConfigurationStore = create<ConfigurationStore>((set, get) => ({
         ...state.configuration,
         transmissionId,
       },
+      warnings: [],
     }));
   },
 
   selectTrim: (trimId) => {
-    set((state) => ({
-      configuration: {
+    set((state) => {
+      const result = normalizeConfigurationWithRules({
         ...state.configuration,
         trimId,
-        exteriorOptions: filterDisabledIds(
-          state.configuration.exteriorOptions,
-          trimId,
-          getExteriorOptionById,
-        ),
-        interiorOptions: filterDisabledIds(
-          state.configuration.interiorOptions,
-          trimId,
-          getInteriorOptionById,
-        ),
-        packages: filterDisabledIds(state.configuration.packages, trimId, getPackageById),
-      },
-    }));
+      });
+
+      return {
+        configuration: result.configuration,
+        warnings: result.warnings,
+      };
+    });
   },
 
   toggleExteriorOption: (optionId) => {
@@ -155,6 +168,7 @@ export const useConfigurationStore = create<ConfigurationStore>((set, get) => ({
             ? state.configuration.exteriorOptions.filter((id) => id !== optionId)
             : [...state.configuration.exteriorOptions, optionId],
         },
+        warnings: [],
       };
     });
   },
@@ -169,6 +183,7 @@ export const useConfigurationStore = create<ConfigurationStore>((set, get) => ({
             ? state.configuration.interiorOptions.filter((id) => id !== optionId)
             : [...state.configuration.interiorOptions, optionId],
         },
+        warnings: [],
       };
     });
   },
@@ -179,19 +194,23 @@ export const useConfigurationStore = create<ConfigurationStore>((set, get) => ({
         ...state.configuration,
         wheels: state.configuration.wheels === wheelId ? null : wheelId,
       },
+      warnings: [],
     }));
   },
 
   togglePackage: (packageId) => {
     set((state) => {
       const isSelected = state.configuration.packages.includes(packageId);
+      const result = normalizeConfigurationWithRules({
+        ...state.configuration,
+        packages: isSelected
+          ? state.configuration.packages.filter((id) => id !== packageId)
+          : [...state.configuration.packages, packageId],
+      });
+
       return {
-        configuration: {
-          ...state.configuration,
-          packages: isSelected
-            ? state.configuration.packages.filter((id) => id !== packageId)
-            : [...state.configuration.packages, packageId],
-        },
+        configuration: result.configuration,
+        warnings: result.warnings,
       };
     });
   },
@@ -225,6 +244,7 @@ export const useConfigurationStore = create<ConfigurationStore>((set, get) => ({
       trimPrice: 0,
       optionsPrice: 0,
       packagesPrice: 0,
+      dealerDiscount: 0,
       totalPrice: 0,
     };
 
@@ -261,13 +281,20 @@ export const useConfigurationStore = create<ConfigurationStore>((set, get) => ({
       breakdown.packagesPrice += getPackageById(packageId)?.priceModifier ?? 0;
     });
 
+    const dealerIncentive = getDealerIncentive(configuration);
+    if (dealerIncentive) {
+      breakdown.dealerDiscount = dealerIncentive.amount;
+      breakdown.dealerDiscountLabel = dealerIncentive.label;
+    }
+
     breakdown.totalPrice =
       breakdown.basePrice +
       breakdown.enginePrice +
       breakdown.transmissionPrice +
       breakdown.trimPrice +
       breakdown.optionsPrice +
-      breakdown.packagesPrice;
+      breakdown.packagesPrice -
+      breakdown.dealerDiscount;
 
     return breakdown;
   },

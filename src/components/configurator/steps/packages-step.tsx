@@ -4,6 +4,7 @@ import { OptionCard } from "@/components/configurator/option-card";
 import { OptionGrid } from "@/components/configurator/option-grid";
 import { Card } from "@/components/ui/card";
 import { packages } from "@/lib/configurator/mock-data";
+import { getPackageDisabledReason } from "@/lib/configurator/rules";
 import { useConfigurationStore } from "@/store/configuration-store";
 
 export function PackagesStep() {
@@ -19,7 +20,7 @@ export function PackagesStep() {
 
       <OptionGrid columns={1}>
         {packages.map((pkg) => {
-          const isDisabled = pkg.disabledTrims?.includes(configuration.trimId ?? "") ?? false;
+          const disabledReason = getPackageDisabledReason(configuration, pkg.id);
           const isSelected = configuration.packages.includes(pkg.id);
 
           return (
@@ -30,8 +31,8 @@ export function PackagesStep() {
                 price={pkg.priceModifier}
                 isSelected={isSelected}
                 onClick={() => togglePackage(pkg.id)}
-                isDisabled={isDisabled}
-                disabledReason={isDisabled ? "Not available with this trim" : undefined}
+                isDisabled={Boolean(disabledReason)}
+                disabledReason={disabledReason}
               />
 
               {isSelected ? (

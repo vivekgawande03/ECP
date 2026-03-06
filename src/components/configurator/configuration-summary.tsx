@@ -113,6 +113,13 @@ export function ConfigurationSummary() {
           {price.trimPrice > 0 ? <PriceRow label="Trim" value={price.trimPrice} /> : null}
           {price.optionsPrice > 0 ? <PriceRow label="Options" value={price.optionsPrice} /> : null}
           {price.packagesPrice > 0 ? <PriceRow label="Packages" value={price.packagesPrice} /> : null}
+          {price.dealerDiscount > 0 ? (
+            <PriceRow
+              label={price.dealerDiscountLabel ?? "Dealer incentive"}
+              value={price.dealerDiscount}
+              isDiscount
+            />
+          ) : null}
         </div>
         <div className="flex items-end justify-between">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">Total</span>
@@ -123,11 +130,21 @@ export function ConfigurationSummary() {
   );
 }
 
-function PriceRow({ label, value }: { label: string; value: number }) {
+function PriceRow({
+  label,
+  value,
+  isDiscount = false,
+}: {
+  label: string;
+  value: number;
+  isDiscount?: boolean;
+}) {
   return (
     <div className="flex justify-between text-slate-400">
       <span>{label}</span>
-      <span className="text-slate-300">{formatCurrency(value)}</span>
+      <span className={isDiscount ? "text-emerald-300" : "text-slate-300"}>
+        {isDiscount ? `-${formatCurrency(value)}` : formatCurrency(value)}
+      </span>
     </div>
   );
 }

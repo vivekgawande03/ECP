@@ -106,6 +106,8 @@ export interface PriceBreakdown {
   trimPrice: number;
   optionsPrice: number;
   packagesPrice: number;
+  dealerDiscount: number;
+  dealerDiscountLabel?: string;
   totalPrice: number;
 }
 
