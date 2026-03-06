@@ -3,9 +3,11 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
+  getDealerById,
   getEngineById,
   getExteriorOptionById,
   getInteriorOptionById,
+  getMarketById,
   getModelById,
   getPackageById,
   getTransmissionById,
@@ -29,6 +31,8 @@ export function ConfigurationSummary() {
   const calculatePrice = useConfigurationStore((state) => state.calculatePrice);
   const price = calculatePrice();
 
+  const market = getMarketById(configuration.market);
+  const dealer = getDealerById(configuration.dealer);
   const model = configuration.modelId ? getModelById(configuration.modelId) : null;
   const engine = configuration.engineId ? getEngineById(configuration.engineId) : null;
   const transmission = configuration.transmissionId
@@ -44,6 +48,8 @@ export function ConfigurationSummary() {
       </div>
 
       <Card className="border-slate-600 bg-slate-700/30 p-4">
+        {market ? <SummaryRow label="Market" value={market.name} /> : null}
+        {dealer ? <SummaryRow label="Dealer" value={dealer.name} /> : null}
         {model ? <SummaryRow label="Model" value={model.name} /> : null}
         {engine ? <SummaryRow label="Engine" value={engine.name} /> : null}
         {transmission ? <SummaryRow label="Transmission" value={transmission.name} /> : null}

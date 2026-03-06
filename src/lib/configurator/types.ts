@@ -1,3 +1,18 @@
+export type MarketId = "us" | "california" | "eu";
+export type DealerId = "premium" | "discount" | "ev";
+
+export interface Market {
+  id: MarketId;
+  name: string;
+  description: string;
+}
+
+export interface Dealer {
+  id: DealerId;
+  name: string;
+  description: string;
+}
+
 export interface Model {
   id: string;
   name: string;
@@ -72,6 +87,8 @@ export interface Package {
 }
 
 export interface Configuration {
+  market: MarketId;
+  dealer: DealerId;
   modelId: string | null;
   engineId: string | null;
   transmissionId: string | null;

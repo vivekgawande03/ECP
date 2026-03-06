@@ -1,7 +1,11 @@
 import type {
+  Dealer,
+  DealerId,
   Engine,
   ExteriorOption,
   InteriorOption,
+  Market,
+  MarketId,
   Model,
   Package,
   Transmission,
@@ -30,6 +34,42 @@ export const models: Model[] = [
     basePrice: 45000,
     description: "High-performance sports coupe",
     image: "/models/coupe-sport.jpg",
+  },
+];
+
+export const markets: Market[] = [
+  {
+    id: "us",
+    name: "United States",
+    description: "Standard national catalog with broad powertrain availability.",
+  },
+  {
+    id: "california",
+    name: "California",
+    description: "EV-forward market with stricter emissions expectations.",
+  },
+  {
+    id: "eu",
+    name: "European Union",
+    description: "Regional configuration context for EU compliance and assortment.",
+  },
+];
+
+export const dealers: Dealer[] = [
+  {
+    id: "premium",
+    name: "Premium Dealer",
+    description: "Focus on high-spec trims and premium upsell scenarios.",
+  },
+  {
+    id: "discount",
+    name: "Discount Dealer",
+    description: "Value-oriented retail context for aggressive pricing conversations.",
+  },
+  {
+    id: "ev",
+    name: "EV Dealer",
+    description: "Specialist retailer centered on electric-first customer journeys.",
   },
 ];
 
@@ -349,6 +389,14 @@ export const packages: Package[] = [
 
 export function getModelById(id: string): Model | undefined {
   return models.find((model) => model.id === id);
+}
+
+export function getMarketById(id: MarketId): Market | undefined {
+  return markets.find((market) => market.id === id);
+}
+
+export function getDealerById(id: DealerId): Dealer | undefined {
+  return dealers.find((dealer) => dealer.id === id);
 }
 
 export function getEngineById(id: string): Engine | undefined {

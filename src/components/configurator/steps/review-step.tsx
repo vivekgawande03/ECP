@@ -2,9 +2,11 @@
 
 import { Card } from "@/components/ui/card";
 import {
+  getDealerById,
   getEngineById,
   getExteriorOptionById,
   getInteriorOptionById,
+  getMarketById,
   getModelById,
   getPackageById,
   getTransmissionById,
@@ -19,6 +21,8 @@ export function ReviewStep() {
   const calculatePrice = useConfigurationStore((state) => state.calculatePrice);
   const price = calculatePrice();
 
+  const market = getMarketById(configuration.market);
+  const dealer = getDealerById(configuration.dealer);
   const model = configuration.modelId ? getModelById(configuration.modelId) : null;
   const engine = configuration.engineId ? getEngineById(configuration.engineId) : null;
   const transmission = configuration.transmissionId ? getTransmissionById(configuration.transmissionId) : null;
@@ -34,6 +38,8 @@ export function ReviewStep() {
       <Card className="border-slate-600 bg-slate-700/30 p-6">
         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-100">Vehicle configuration</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {market ? <InfoBlock label="Market" value={market.name} /> : null}
+          {dealer ? <InfoBlock label="Dealer" value={dealer.name} /> : null}
           {model ? <InfoBlock label="Model" value={model.name} /> : null}
           {engine ? <InfoBlock label="Engine" value={engine.name} /> : null}
           {transmission ? <InfoBlock label="Transmission" value={transmission.name} /> : null}

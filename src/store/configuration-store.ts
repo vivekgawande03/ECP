@@ -16,6 +16,8 @@ import {
 } from "@/lib/configurator/mock-data";
 import type {
   Configuration,
+  DealerId,
+  MarketId,
   PriceBreakdown,
   ValidationWarning,
 } from "@/lib/configurator/types";
@@ -24,6 +26,8 @@ type ConfigurationStore = {
   configuration: Configuration;
   currentStep: number;
   warnings: ValidationWarning[];
+  setMarket: (market: MarketId) => void;
+  setDealer: (dealer: DealerId) => void;
   selectModel: (modelId: string) => void;
   selectEngine: (engineId: string) => void;
   selectTransmission: (transmissionId: string) => void;
@@ -47,6 +51,8 @@ const LAST_STEP_INDEX = 8;
 
 function createInitialConfiguration(): Configuration {
   return {
+    market: "us",
+    dealer: "premium",
     modelId: null,
     engineId: null,
     transmissionId: null,
@@ -66,6 +72,24 @@ export const useConfigurationStore = create<ConfigurationStore>((set, get) => ({
   configuration: createInitialConfiguration(),
   currentStep: 0,
   warnings: [],
+
+  setMarket: (market) => {
+    set((state) => ({
+      configuration: {
+        ...state.configuration,
+        market,
+      },
+    }));
+  },
+
+  setDealer: (dealer) => {
+    set((state) => ({
+      configuration: {
+        ...state.configuration,
+        dealer,
+      },
+    }));
+  },
 
   selectModel: (modelId) => {
     set((state) => ({

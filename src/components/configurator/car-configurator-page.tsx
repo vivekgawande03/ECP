@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AiAssistantPanel } from "@/components/configurator/ai-assistant-panel";
+import { ConfigurationContextCard } from "@/components/configurator/configuration-context-card";
 import { ConfiguratorLayout } from "@/components/configurator/configurator-layout";
 import { ConfigurationSummary } from "@/components/configurator/configuration-summary";
 import { StepWizard } from "@/components/configurator/step-wizard";
@@ -69,7 +70,14 @@ export function CarConfiguratorPage() {
     <>
       <ConfiguratorLayout
         preview={<VehiclePreview />}
-        wizard={<StepWizard steps={steps} onComplete={() => setIsCompleted(true)} />}
+        wizard={
+          <div className="flex h-full min-h-0 flex-col gap-6">
+            <ConfigurationContextCard />
+            <div className="min-h-0 flex-1">
+              <StepWizard steps={steps} onComplete={() => setIsCompleted(true)} />
+            </div>
+          </div>
+        }
         summary={<ConfigurationSummary />}
       />
       <AiAssistantPanel />
