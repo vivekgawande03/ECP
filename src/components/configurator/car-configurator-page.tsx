@@ -18,6 +18,8 @@ import { TransmissionStep } from "@/components/configurator/steps/transmission-s
 import { TrimStep } from "@/components/configurator/steps/trim-step";
 import { WheelsStep } from "@/components/configurator/steps/wheels-step";
 import { Button } from "@/components/ui/button";
+import { getDealerById, getMarketById } from "@/lib/configurator/mock-data";
+import { formatCurrency } from "@/lib/utils";
 import { useConfigurationStore } from "@/store/configuration-store";
 
 const steps = [
@@ -35,11 +37,26 @@ const steps = [
 export function CarConfiguratorPage() {
   const [isCompleted, setIsCompleted] = useState(false);
   const reset = useConfigurationStore((state) => state.reset);
+  const savedQuotes = useConfigurationStore((state) => state.savedQuotes);
+  const activeQuoteId = useConfigurationStore((state) => state.activeQuoteId);
+  const saveQuote = useConfigurationStore((state) => state.saveQuote);
+  const loadLatestQuote = useConfigurationStore((state) => state.loadLatestQuote);
+  const activeQuote = savedQuotes.find((quote) => quote.id === activeQuoteId) ?? null;
+  const quoteMarket = activeQuote ? getMarketById(activeQuote.market) : null;
+  const quoteDealer = activeQuote ? getDealerById(activeQuote.dealer) : null;
+
+  const handleComplete = () => {
+    if (!activeQuoteId) {
+      saveQuote();
+    }
+
+    setIsCompleted(true);
+  };
 
   if (isCompleted) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-900 to-slate-950 px-4">
-        <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900/80 p-8 text-center shadow-2xl">
+        <div className="w-full max-w-xl rounded-3xl border border-slate-800 bg-slate-900/80 p-8 text-center shadow-2xl">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
             <svg className="h-8 w-8" fill="currentColor" viewBox="0 0 20 20">
               <path
@@ -49,19 +66,62 @@ export function CarConfiguratorPage() {
               />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-white">Configuration Complete</h1>
+          <h1 className="text-3xl font-bold text-white">
+            {activeQuote ? "Quote Saved Successfully" : "Configuration Complete"}
+          </h1>
           <p className="mt-3 text-sm text-slate-400">
-            Your vehicle build has been captured successfully. You can start a fresh build anytime.
+            {activeQuote
+              ? "Your vehicle build is now packaged as a presentation-ready quote and stored locally in this browser."
+              : "Your vehicle build has been captured successfully. You can start a fresh build anytime."}
           </p>
-          <Button
-            className="mt-8 w-full"
-            onClick={() => {
-              reset();
-              setIsCompleted(false);
-            }}
-          >
-            Start New Configuration
-          </Button>
+
+          {activeQuote ? (
+            <div className="mt-6 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5 text-left">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <CompletionInfo label="Quote ID" value={activeQuote.id} />
+                <CompletionInfo
+                  label="Saved at"
+                  value={new Date(activeQuote.savedAt).toLocaleString(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                />
+                <CompletionInfo label="Market" value={quoteMarket?.name ?? activeQuote.market} />
+                <CompletionInfo label="Dealer" value={quoteDealer?.name ?? activeQuote.dealer} />
+              </div>
+
+              <div className="mt-5 border-t border-slate-700/60 pt-4">
+                <p className="text-xs uppercase tracking-wider text-slate-400">Quoted total</p>
+                <p className="mt-2 text-3xl font-bold text-cyan-400">
+                  {formatCurrency(activeQuote.price.totalPrice)}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-8 space-y-3">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                loadLatestQuote();
+                setIsCompleted(false);
+              }}
+              disabled={savedQuotes.length === 0}
+            >
+              Load Last Saved Quote
+            </Button>
+
+            <Button
+              className="w-full"
+              onClick={() => {
+                reset();
+                setIsCompleted(false);
+              }}
+            >
+              Start New Configuration
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -72,11 +132,11 @@ export function CarConfiguratorPage() {
       <ConfiguratorLayout
         preview={<VehiclePreview />}
         wizard={
-          <div className="flex h-full min-h-0 flex-col gap-6">
+          <div className="flex flex-col gap-6">
             <ConfigurationContextCard />
             <RuleExplanationPanel />
-            <div className="min-h-0 flex-1">
-              <StepWizard steps={steps} onComplete={() => setIsCompleted(true)} />
+            <div>
+              <StepWizard steps={steps} onComplete={handleComplete} />
             </div>
           </div>
         }
@@ -84,5 +144,14 @@ export function CarConfiguratorPage() {
       />
       <AiAssistantPanel />
     </>
+  );
+}
+
+function CompletionInfo({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-white">{value}</p>
+    </div>
   );
 }

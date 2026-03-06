@@ -111,6 +111,15 @@ export interface PriceBreakdown {
   totalPrice: number;
 }
 
+export interface SavedQuote {
+  id: string;
+  savedAt: string;
+  market: MarketId;
+  dealer: DealerId;
+  configuration: Configuration;
+  price: PriceBreakdown;
+}
+
 export interface ValidationWarning {
   id: string;
   message: string;

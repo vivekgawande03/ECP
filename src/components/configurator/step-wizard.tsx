@@ -29,7 +29,7 @@ export function StepWizard({ steps, onComplete }: StepWizardProps) {
   const isLastStep = currentStep === steps.length - 1;
 
   return (
-    <div className="flex h-full flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <div className="sticky top-0 z-10 -mx-5 -mt-5 border-b border-slate-700 bg-slate-900/90 px-5 py-5 backdrop-blur md:-mx-8 md:-mt-8 md:px-8 md:py-6">
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
@@ -52,7 +52,7 @@ export function StepWizard({ steps, onComplete }: StepWizardProps) {
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-1">
+      <div className="pr-1">
         <div className="min-h-full">{current?.content ?? null}</div>
       </div>
 
