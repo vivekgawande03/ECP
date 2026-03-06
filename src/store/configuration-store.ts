@@ -439,6 +439,7 @@ export const useConfigurationStore = create<ConfigurationStore>()(
     }),
     {
       name: CONFIGURATION_STORAGE_KEY,
+      skipHydration: true,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         configuration: state.configuration,

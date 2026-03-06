@@ -29,8 +29,8 @@ export function StepWizard({ steps, onComplete }: StepWizardProps) {
   const isLastStep = currentStep === steps.length - 1;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="sticky top-0 z-10 -mx-5 -mt-5 border-b border-slate-700 bg-slate-900/90 px-5 py-5 backdrop-blur md:-mx-8 md:-mt-8 md:px-8 md:py-6">
+    <div className="flex flex-col gap-6 pb-28">
+      <div className="sticky top-0 z-20 -mx-5 -mt-5 border-b border-slate-700 bg-slate-900/95 px-5 py-5 shadow-[0_10px_30px_rgba(2,6,23,0.35)] backdrop-blur md:-mx-8 md:-mt-8 md:px-8 md:py-6">
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Vehicle configurator</p>
@@ -56,7 +56,7 @@ export function StepWizard({ steps, onComplete }: StepWizardProps) {
         <div className="min-h-full">{current?.content ?? null}</div>
       </div>
 
-      <div className="border-t border-slate-700 pt-4">
+      <div className="sticky bottom-0 z-20 -mx-5 mt-2 border-t border-slate-700 bg-slate-900/95 px-5 py-4 shadow-[0_-10px_30px_rgba(2,6,23,0.4)] backdrop-blur md:-mx-8 md:px-8 md:py-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-3">
             {currentStep > 0 ? (

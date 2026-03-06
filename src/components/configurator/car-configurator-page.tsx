@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AiAssistantPanel } from "@/components/configurator/ai-assistant-panel";
 import { ConfigurationContextCard } from "@/components/configurator/configuration-context-card";
 import { RuleExplanationPanel } from "@/components/configurator/rule-explanation-panel";
@@ -36,6 +36,11 @@ const steps = [
 
 export function CarConfiguratorPage() {
   const [isCompleted, setIsCompleted] = useState(false);
+
+  useEffect(() => {
+    void useConfigurationStore.persist.rehydrate();
+  }, []);
+
   const reset = useConfigurationStore((state) => state.reset);
   const savedQuotes = useConfigurationStore((state) => state.savedQuotes);
   const activeQuoteId = useConfigurationStore((state) => state.activeQuoteId);
