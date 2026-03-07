@@ -2,21 +2,12 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { engines, transmissions, trims } from "@/lib/configurator/mock-data";
 import {
-  engines,
-  getEngineById,
-  getExteriorOptionById,
-  getInteriorOptionById,
-  getModelById,
-  getPackageById,
-  getTransmissionById,
-  getTrimById,
-  getWheelById,
-  transmissions,
-  trims,
-} from "@/lib/configurator/mock-data";
+  calculateConfigurationPrice,
+  cloneConfiguration,
+} from "@/lib/configurator/pricing";
 import {
-  getDealerIncentive,
   normalizeConfigurationWithRules,
 } from "@/lib/configurator/rules";
 import type {
@@ -32,7 +23,6 @@ type ConfigurationStore = {
   configuration: Configuration;
   currentStep: number;
   warnings: ValidationWarning[];
-  savedQuotes: SavedQuote[];
   activeQuoteId: string | null;
   setMarket: (market: MarketId) => void;
   setDealer: (dealer: DealerId) => void;
@@ -48,9 +38,8 @@ type ConfigurationStore = {
   previousStep: () => void;
   setCurrentStep: (step: number) => void;
   reset: () => void;
-  saveQuote: () => SavedQuote;
-  loadQuote: (quoteId: string) => boolean;
-  loadLatestQuote: () => boolean;
+  setActiveQuoteId: (quoteId: string | null) => void;
+  applySavedQuote: (quote: SavedQuote) => void;
   calculatePrice: () => PriceBreakdown;
   isStepValid: () => boolean;
   getCompatibleEngines: () => string[];
@@ -76,21 +65,6 @@ function createInitialConfiguration(): Configuration {
   };
 }
 
-function cloneConfiguration(configuration: Configuration): Configuration {
-  return {
-    ...configuration,
-    exteriorOptions: [...configuration.exteriorOptions],
-    interiorOptions: [...configuration.interiorOptions],
-    packages: [...configuration.packages],
-  };
-}
-
-function clonePriceBreakdown(price: PriceBreakdown): PriceBreakdown {
-  return {
-    ...price,
-  };
-}
-
 function createConfigurationState(
   configuration: Configuration,
   warnings: ValidationWarning[],
@@ -102,20 +76,12 @@ function createConfigurationState(
   };
 }
 
-function generateQuoteId(): string {
-  const timestamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
-  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
-
-  return `ECP-${timestamp}-${suffix}`;
-}
-
 export const useConfigurationStore = create<ConfigurationStore>()(
   persist(
     (set, get) => ({
       configuration: createInitialConfiguration(),
       currentStep: 0,
       warnings: [],
-      savedQuotes: [],
       activeQuoteId: null,
 
       setMarket: (market) => {
@@ -269,123 +235,20 @@ export const useConfigurationStore = create<ConfigurationStore>()(
         });
       },
 
-      saveQuote: () => {
-        const { configuration, savedQuotes, calculatePrice } = get();
-        const quote: SavedQuote = {
-          id: generateQuoteId(),
-          savedAt: new Date().toISOString(),
-          market: configuration.market,
-          dealer: configuration.dealer,
-          configuration: cloneConfiguration(configuration),
-          price: clonePriceBreakdown(calculatePrice()),
-        };
-
-        set({
-          savedQuotes: [quote, ...savedQuotes],
-          activeQuoteId: quote.id,
-          warnings: [],
-        });
-
-        return quote;
+      setActiveQuoteId: (quoteId) => {
+        set({ activeQuoteId: quoteId });
       },
 
-      loadQuote: (quoteId) => {
-        const quote = get().savedQuotes.find((savedQuote) => savedQuote.id === quoteId);
-
-        if (!quote) {
-          return false;
-        }
-
+      applySavedQuote: (quote) => {
         set({
           configuration: cloneConfiguration(quote.configuration),
           currentStep: LAST_STEP_INDEX,
           warnings: [],
           activeQuoteId: quote.id,
         });
-
-        return true;
       },
 
-      loadLatestQuote: () => {
-        const latestQuote = get().savedQuotes[0];
-
-        if (!latestQuote) {
-          return false;
-        }
-
-        set({
-          configuration: cloneConfiguration(latestQuote.configuration),
-          currentStep: LAST_STEP_INDEX,
-          warnings: [],
-          activeQuoteId: latestQuote.id,
-        });
-
-        return true;
-      },
-
-      calculatePrice: () => {
-        const { configuration } = get();
-        const breakdown: PriceBreakdown = {
-          basePrice: 0,
-          enginePrice: 0,
-          transmissionPrice: 0,
-          trimPrice: 0,
-          optionsPrice: 0,
-          packagesPrice: 0,
-          dealerDiscount: 0,
-          totalPrice: 0,
-        };
-
-        if (configuration.modelId) {
-          breakdown.basePrice = getModelById(configuration.modelId)?.basePrice ?? 0;
-        }
-
-        if (configuration.engineId) {
-          breakdown.enginePrice = getEngineById(configuration.engineId)?.priceModifier ?? 0;
-        }
-
-        if (configuration.transmissionId) {
-          breakdown.transmissionPrice =
-            getTransmissionById(configuration.transmissionId)?.priceModifier ?? 0;
-        }
-
-        if (configuration.trimId) {
-          breakdown.trimPrice = getTrimById(configuration.trimId)?.priceModifier ?? 0;
-        }
-
-        configuration.exteriorOptions.forEach((optionId) => {
-          breakdown.optionsPrice += getExteriorOptionById(optionId)?.priceModifier ?? 0;
-        });
-
-        configuration.interiorOptions.forEach((optionId) => {
-          breakdown.optionsPrice += getInteriorOptionById(optionId)?.priceModifier ?? 0;
-        });
-
-        if (configuration.wheels) {
-          breakdown.optionsPrice += getWheelById(configuration.wheels)?.priceModifier ?? 0;
-        }
-
-        configuration.packages.forEach((packageId) => {
-          breakdown.packagesPrice += getPackageById(packageId)?.priceModifier ?? 0;
-        });
-
-        const dealerIncentive = getDealerIncentive(configuration);
-        if (dealerIncentive) {
-          breakdown.dealerDiscount = dealerIncentive.amount;
-          breakdown.dealerDiscountLabel = dealerIncentive.label;
-        }
-
-        breakdown.totalPrice =
-          breakdown.basePrice +
-          breakdown.enginePrice +
-          breakdown.transmissionPrice +
-          breakdown.trimPrice +
-          breakdown.optionsPrice +
-          breakdown.packagesPrice -
-          breakdown.dealerDiscount;
-
-        return breakdown;
-      },
+      calculatePrice: () => calculateConfigurationPrice(get().configuration),
 
       isStepValid: () => {
         const { configuration, currentStep } = get();
@@ -444,7 +307,6 @@ export const useConfigurationStore = create<ConfigurationStore>()(
       partialize: (state) => ({
         configuration: state.configuration,
         currentStep: state.currentStep,
-        savedQuotes: state.savedQuotes,
         activeQuoteId: state.activeQuoteId,
       }),
     },

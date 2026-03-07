@@ -19,8 +19,10 @@ import { TrimStep } from "@/components/configurator/steps/trim-step";
 import { WheelsStep } from "@/components/configurator/steps/wheels-step";
 import { Button } from "@/components/ui/button";
 import { getDealerById, getMarketById } from "@/lib/configurator/mock-data";
+import type { SavedQuote } from "@/lib/configurator/types";
 import { formatCurrency } from "@/lib/utils";
 import { useConfigurationStore } from "@/store/configuration-store";
+import { trpc } from "@/trpc/react";
 
 const steps = [
   { label: "Model", content: <ModelStep /> },
@@ -36,27 +38,54 @@ const steps = [
 
 export function CarConfiguratorPage() {
   const [isCompleted, setIsCompleted] = useState(false);
+  const [completedQuote, setCompletedQuote] = useState<SavedQuote | null>(null);
 
   useEffect(() => {
     void useConfigurationStore.persist.rehydrate();
   }, []);
 
+  const configuration = useConfigurationStore((state) => state.configuration);
   const reset = useConfigurationStore((state) => state.reset);
-  const savedQuotes = useConfigurationStore((state) => state.savedQuotes);
   const activeQuoteId = useConfigurationStore((state) => state.activeQuoteId);
-  const saveQuote = useConfigurationStore((state) => state.saveQuote);
-  const loadLatestQuote = useConfigurationStore((state) => state.loadLatestQuote);
-  const activeQuote = savedQuotes.find((quote) => quote.id === activeQuoteId) ?? null;
+  const setActiveQuoteId = useConfigurationStore((state) => state.setActiveQuoteId);
+  const applySavedQuote = useConfigurationStore((state) => state.applySavedQuote);
+  const utils = trpc.useUtils();
+  const activeQuoteQuery = trpc.quote.getById.useQuery(
+    { id: activeQuoteId ?? "" },
+    {
+      enabled: Boolean(activeQuoteId),
+    },
+  );
+  const latestQuoteQuery = trpc.quote.getLatest.useQuery();
+  const createQuoteMutation = trpc.quote.create.useMutation();
+  const activeQuote = completedQuote ?? activeQuoteQuery.data ?? null;
   const quoteMarket = activeQuote ? getMarketById(activeQuote.market) : null;
   const quoteDealer = activeQuote ? getDealerById(activeQuote.dealer) : null;
 
-  const handleComplete = () => {
-    if (!activeQuoteId) {
-      saveQuote();
-    }
+  const handleComplete = async () => {
+    try {
+      if (!activeQuoteId) {
+        const quote = await createQuoteMutation.mutateAsync({ configuration });
 
-    setIsCompleted(true);
+        setActiveQuoteId(quote.id);
+        setCompletedQuote(quote);
+        setIsCompleted(true);
+
+        void utils.quote.list.invalidate();
+        void utils.quote.getLatest.invalidate();
+        void utils.quote.getById.invalidate({ id: quote.id });
+
+        return;
+      }
+
+      setCompletedQuote(activeQuoteQuery.data ?? null);
+      setIsCompleted(true);
+    } catch {
+      setCompletedQuote(null);
+    }
   };
+
+  const isLoadingCompletionQuote = isCompleted && Boolean(activeQuoteId) && activeQuoteQuery.isLoading && !activeQuote;
 
   if (isCompleted) {
     return (
@@ -72,13 +101,25 @@ export function CarConfiguratorPage() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold text-white">
-            {activeQuote ? "Quote Saved Successfully" : "Configuration Complete"}
+            {isLoadingCompletionQuote
+              ? "Loading Quote Details"
+              : activeQuote
+                ? "Quote Saved Successfully"
+                : "Configuration Complete"}
           </h1>
           <p className="mt-3 text-sm text-slate-400">
-            {activeQuote
-              ? "Your vehicle build is now packaged as a presentation-ready quote and stored locally in this browser."
-              : "Your vehicle build has been captured successfully. You can start a fresh build anytime."}
+            {isLoadingCompletionQuote
+              ? "We’re fetching the latest saved quote details from SQLite now."
+              : activeQuote
+                ? "Your vehicle build is now packaged as a presentation-ready quote and stored in the SQLite demo database."
+                : "Your vehicle build has been captured successfully. You can start a fresh build anytime."}
           </p>
+
+          {createQuoteMutation.error ? (
+            <div className="mt-5 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+              Saving the quote failed. Please return to the configurator and try again.
+            </div>
+          ) : null}
 
           {activeQuote ? (
             <div className="mt-6 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5 text-left">
@@ -109,10 +150,16 @@ export function CarConfiguratorPage() {
               variant="outline"
               className="w-full"
               onClick={() => {
-                loadLatestQuote();
+                const latestQuote = latestQuoteQuery.data;
+
+                if (latestQuote) {
+                  applySavedQuote(latestQuote);
+                }
+
+                setCompletedQuote(null);
                 setIsCompleted(false);
               }}
-              disabled={savedQuotes.length === 0}
+              disabled={!latestQuoteQuery.data || latestQuoteQuery.isLoading}
             >
               Load Last Saved Quote
             </Button>
@@ -121,6 +168,7 @@ export function CarConfiguratorPage() {
               className="w-full"
               onClick={() => {
                 reset();
+                setCompletedQuote(null);
                 setIsCompleted(false);
               }}
             >
@@ -140,8 +188,17 @@ export function CarConfiguratorPage() {
           <div className="flex flex-col gap-6">
             <ConfigurationContextCard />
             <RuleExplanationPanel />
+            {createQuoteMutation.error ? (
+              <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                We couldn’t save the quote. Please try again.
+              </div>
+            ) : null}
             <div>
-              <StepWizard steps={steps} onComplete={handleComplete} />
+              <StepWizard
+                steps={steps}
+                onComplete={handleComplete}
+                isCompleting={createQuoteMutation.isPending}
+              />
             </div>
           </div>
         }

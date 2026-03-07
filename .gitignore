@@ -18,3 +18,5 @@ pnpm-debug.log*
 
 # typescript
 *.tsbuildinfo
+
+/generated/prisma

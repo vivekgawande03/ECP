@@ -17,16 +17,25 @@ import {
 import { getRuleNotes } from "@/lib/configurator/rules";
 import { formatCurrency } from "@/lib/utils";
 import { useConfigurationStore } from "@/store/configuration-store";
+import { trpc } from "@/trpc/react";
 
 export function ReviewStep() {
   const configuration = useConfigurationStore((state) => state.configuration);
   const warnings = useConfigurationStore((state) => state.warnings);
-  const savedQuotes = useConfigurationStore((state) => state.savedQuotes);
   const activeQuoteId = useConfigurationStore((state) => state.activeQuoteId);
-  const saveQuote = useConfigurationStore((state) => state.saveQuote);
-  const loadQuote = useConfigurationStore((state) => state.loadQuote);
-  const loadLatestQuote = useConfigurationStore((state) => state.loadLatestQuote);
+  const setActiveQuoteId = useConfigurationStore((state) => state.setActiveQuoteId);
+  const applySavedQuote = useConfigurationStore((state) => state.applySavedQuote);
   const calculatePrice = useConfigurationStore((state) => state.calculatePrice);
+  const utils = trpc.useUtils();
+  const quotesQuery = trpc.quote.list.useQuery();
+  const saveQuoteMutation = trpc.quote.create.useMutation({
+    onSuccess: (quote) => {
+      setActiveQuoteId(quote.id);
+      void utils.quote.list.invalidate();
+      void utils.quote.getLatest.invalidate();
+      void utils.quote.getById.invalidate({ id: quote.id });
+    },
+  });
   const price = calculatePrice();
   const ruleNotes = getRuleNotes(configuration);
 
@@ -36,8 +45,15 @@ export function ReviewStep() {
   const engine = configuration.engineId ? getEngineById(configuration.engineId) : null;
   const transmission = configuration.transmissionId ? getTransmissionById(configuration.transmissionId) : null;
   const trim = configuration.trimId ? getTrimById(configuration.trimId) : null;
-  const activeQuote = savedQuotes.find((quote) => quote.id === activeQuoteId) ?? null;
-  const recentQuotes = savedQuotes.slice(0, 3);
+  const savedQuotes = quotesQuery.data ?? [];
+  const pendingQuote = saveQuoteMutation.data;
+  const activeQuote =
+    savedQuotes.find((quote) => quote.id === activeQuoteId) ??
+    (pendingQuote?.id === activeQuoteId ? pendingQuote : null);
+  const recentQuotes = (activeQuote
+    ? [activeQuote, ...savedQuotes.filter((quote) => quote.id !== activeQuote.id)]
+    : savedQuotes
+  ).slice(0, 3);
 
   return (
     <div className="space-y-6">
@@ -63,24 +79,46 @@ export function ReviewStep() {
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-100">Quote workflow</h3>
             <p className="mt-2 text-sm text-slate-400">
-              Save this build locally for the demo, then reload any saved quote snapshot instantly.
+              Save this build to the SQLite-backed demo store, then reload any persisted quote snapshot instantly.
             </p>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row xl:flex-shrink-0">
-            <Button className="whitespace-nowrap" onClick={() => saveQuote()}>
-              Save quote
+            <Button
+              className="whitespace-nowrap"
+              onClick={() => saveQuoteMutation.mutate({ configuration })}
+              disabled={saveQuoteMutation.isPending}
+            >
+              {saveQuoteMutation.isPending ? "Saving quote..." : "Save quote"}
             </Button>
             <Button
               className="whitespace-nowrap"
               variant="outline"
-              onClick={() => loadLatestQuote()}
-              disabled={savedQuotes.length === 0}
+              onClick={() => {
+                const latestQuote = savedQuotes[0];
+
+                if (latestQuote) {
+                  applySavedQuote(latestQuote);
+                }
+              }}
+              disabled={savedQuotes.length === 0 || quotesQuery.isLoading}
             >
               Load latest quote
             </Button>
           </div>
         </div>
+
+        {quotesQuery.error ? (
+          <div className="mt-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            Unable to load saved quotes right now. You can still continue configuring and try again in a moment.
+          </div>
+        ) : null}
+
+        {saveQuoteMutation.error ? (
+          <div className="mt-5 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+            Saving the quote failed. Please try again.
+          </div>
+        ) : null}
 
         {activeQuote ? (
           <div className="mt-5 grid grid-cols-1 gap-4 border-t border-slate-700/60 pt-5 md:grid-cols-3">
@@ -93,6 +131,12 @@ export function ReviewStep() {
             This configuration is not saved yet. Save it now so the final screen can present a quote ID.
           </div>
         )}
+
+        {quotesQuery.isLoading && recentQuotes.length === 0 ? (
+          <div className="mt-5 rounded-2xl border border-slate-700 bg-slate-800/50 px-4 py-4 text-sm text-slate-400">
+            Loading persisted quotes...
+          </div>
+        ) : null}
 
         {recentQuotes.length > 0 ? (
           <div className="mt-5 space-y-3 border-t border-slate-700/60 pt-5">
@@ -122,7 +166,7 @@ export function ReviewStep() {
                         Loaded
                       </span>
                     ) : null}
-                    <Button variant="secondary" size="sm" onClick={() => loadQuote(quote.id)}>
+                    <Button variant="secondary" size="sm" onClick={() => applySavedQuote(quote)}>
                       Load quote
                     </Button>
                   </div>
