@@ -27,3 +27,31 @@ export const priceBreakdownSchema = z.object({
   dealerDiscountLabel: z.string().optional(),
   totalPrice: z.number(),
 });
+
+export const configurationVersionSetSchema = z.object({
+  catalogVersion: z.string(),
+  rulesVersion: z.string(),
+  pricingVersion: z.string(),
+});
+
+export const validationWarningSchema = z.object({
+  id: z.string(),
+  message: z.string(),
+  severity: z.enum(["warning", "error"]),
+  conflictingOption: z.string().optional(),
+});
+
+export const ruleNoteSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  detail: z.string(),
+  tone: z.enum(["info", "warning", "success"]),
+});
+
+export const configurationEvaluationSchema = z.object({
+  configuration: configurationSchema,
+  warnings: z.array(validationWarningSchema),
+  ruleNotes: z.array(ruleNoteSchema),
+  price: priceBreakdownSchema,
+  versions: configurationVersionSetSchema,
+});

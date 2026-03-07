@@ -111,6 +111,12 @@ export interface PriceBreakdown {
   totalPrice: number;
 }
 
+export interface ConfigurationVersionSet {
+  catalogVersion: string;
+  rulesVersion: string;
+  pricingVersion: string;
+}
+
 export interface SavedQuote {
   id: string;
   savedAt: string;
@@ -118,6 +124,7 @@ export interface SavedQuote {
   dealer: DealerId;
   configuration: Configuration;
   price: PriceBreakdown;
+  versions: ConfigurationVersionSet;
 }
 
 export interface ValidationWarning {
@@ -125,4 +132,19 @@ export interface ValidationWarning {
   message: string;
   severity: "warning" | "error";
   conflictingOption?: string;
+}
+
+export interface RuleNote {
+  id: string;
+  title: string;
+  detail: string;
+  tone: "info" | "warning" | "success";
+}
+
+export interface ConfigurationEvaluation {
+  configuration: Configuration;
+  warnings: ValidationWarning[];
+  ruleNotes: RuleNote[];
+  price: PriceBreakdown;
+  versions: ConfigurationVersionSet;
 }

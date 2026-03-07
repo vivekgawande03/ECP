@@ -3,6 +3,10 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
+  areConfigurationVersionsEqual,
+  getConfigurationVersionEntries,
+} from "@/lib/configurator/versioning";
+import {
   getDealerById,
   getEngineById,
   getExteriorOptionById,
@@ -16,6 +20,7 @@ import {
 } from "@/lib/configurator/mock-data";
 import { formatCurrency } from "@/lib/utils";
 import { useConfigurationStore } from "@/store/configuration-store";
+import { trpc } from "@/trpc/react";
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
@@ -28,7 +33,15 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 
 export function ConfigurationSummary() {
   const configuration = useConfigurationStore((state) => state.configuration);
+  const currentVersions = useConfigurationStore((state) => state.currentVersions);
+  const activeQuoteId = useConfigurationStore((state) => state.activeQuoteId);
   const calculatePrice = useConfigurationStore((state) => state.calculatePrice);
+  const activeQuoteQuery = trpc.quote.getById.useQuery(
+    { id: activeQuoteId ?? "" },
+    {
+      enabled: Boolean(activeQuoteId),
+    },
+  );
   const price = calculatePrice();
 
   const market = getMarketById(configuration.market);
@@ -39,6 +52,10 @@ export function ConfigurationSummary() {
     ? getTransmissionById(configuration.transmissionId)
     : null;
   const trim = configuration.trimId ? getTrimById(configuration.trimId) : null;
+  const activeQuote = activeQuoteQuery.data ?? null;
+  const activeQuoteIsCurrent = activeQuote
+    ? areConfigurationVersionsEqual(activeQuote.versions, currentVersions)
+    : true;
 
   return (
     <div className="space-y-4">
@@ -126,8 +143,44 @@ export function ConfigurationSummary() {
           <p className="text-2xl font-bold text-cyan-400">{formatCurrency(price.totalPrice)}</p>
         </div>
       </Card>
+
+      {activeQuote ? (
+        <Card className="border-slate-600 bg-slate-700/30 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-300">Loaded Quote</h4>
+              <p className="mt-2 text-sm font-semibold text-white">{activeQuote.id}</p>
+              <p className="mt-1 text-xs text-slate-500">{formatQuoteTimestamp(activeQuote.savedAt)}</p>
+            </div>
+
+            <span
+              className={[
+                "rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider",
+                activeQuoteIsCurrent
+                  ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                  : "border border-amber-500/30 bg-amber-500/10 text-amber-200",
+              ].join(" ")}
+            >
+              {activeQuoteIsCurrent ? "Current" : "Older"}
+            </span>
+          </div>
+
+          <div className="mt-4 border-t border-slate-600/40 pt-3">
+            {getConfigurationVersionEntries(activeQuote.versions).map(({ label, value }) => (
+              <SummaryRow key={label} label={label} value={value} />
+            ))}
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
+}
+
+function formatQuoteTimestamp(value: string) {
+  return new Date(value).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
 function PriceRow({

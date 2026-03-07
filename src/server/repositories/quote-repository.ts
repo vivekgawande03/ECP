@@ -1,5 +1,6 @@
 import type {
   Configuration,
+  ConfigurationVersionSet,
   DealerId,
   MarketId,
   PriceBreakdown,
@@ -13,6 +14,7 @@ export interface StoredQuoteRecord {
   dealer: DealerId;
   configuration: Configuration;
   price: PriceBreakdown;
+  versions: ConfigurationVersionSet;
 }
 
 export interface CreateQuoteInput {
@@ -21,6 +23,7 @@ export interface CreateQuoteInput {
   dealer: DealerId;
   configuration: Configuration;
   price: PriceBreakdown;
+  versions: ConfigurationVersionSet;
   eventType: string;
   eventPayload?: unknown;
 }

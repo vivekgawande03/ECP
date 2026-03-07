@@ -1,14 +1,15 @@
 import { z } from "zod";
 import {
   configurationSchema,
+  configurationVersionSetSchema,
   dealerSchema,
   marketSchema,
   priceBreakdownSchema,
 } from "@/lib/configurator/schemas";
-import { calculateConfigurationPrice } from "@/lib/configurator/pricing";
 import type { SavedQuote } from "@/lib/configurator/types";
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
 import { quoteRepository } from "@/server/repositories/quote-repository";
+import { evaluateConfiguration } from "@/server/services/configuration-evaluator";
 
 const quoteRecordSchema = z.object({
   id: z.string(),
@@ -17,6 +18,7 @@ const quoteRecordSchema = z.object({
   dealer: dealerSchema,
   configuration: configurationSchema,
   price: priceBreakdownSchema,
+  versions: configurationVersionSetSchema,
 });
 
 function generateQuoteId(): string {
@@ -36,6 +38,7 @@ function serializeQuote(record: unknown): SavedQuote {
     dealer: parsedQuote.dealer,
     configuration: parsedQuote.configuration,
     price: parsedQuote.price,
+    versions: parsedQuote.versions,
   };
 }
 
@@ -47,17 +50,19 @@ export const quoteRouter = createTRPCRouter({
       }),
     )
     .mutation(({ input }) => {
-      const price = calculateConfigurationPrice(input.configuration);
+      const evaluation = evaluateConfiguration(input.configuration);
       const quote = quoteRepository.create({
         id: generateQuoteId(),
-        market: input.configuration.market,
-        dealer: input.configuration.dealer,
-        configuration: input.configuration,
-        price,
+        market: evaluation.configuration.market,
+        dealer: evaluation.configuration.dealer,
+        configuration: evaluation.configuration,
+        price: evaluation.price,
+        versions: evaluation.versions,
         eventType: "QUOTE_CREATED",
         eventPayload: {
           source: "configurator",
-          totalPrice: price.totalPrice,
+          totalPrice: evaluation.price.totalPrice,
+          versions: evaluation.versions,
         },
       });
 

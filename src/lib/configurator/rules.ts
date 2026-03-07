@@ -4,7 +4,7 @@ import {
   getInteriorOptionById,
   getPackageById,
 } from "@/lib/configurator/mock-data";
-import type { Configuration, ValidationWarning } from "@/lib/configurator/types";
+import type { Configuration, RuleNote, ValidationWarning } from "@/lib/configurator/types";
 import { formatCurrency } from "@/lib/utils";
 
 const DIESEL_ENGINE_ID = "diesel-2.2";
@@ -13,13 +13,6 @@ const RED_INTERIOR_ID = "interior-red-sport";
 const TOWING_PACKAGE_ID = "pkg-towing";
 const EV_DEALER_INCENTIVE = 2500;
 const PREMIUM_DEALER_LUXURY_CREDIT = 1500;
-
-export type RuleNote = {
-  id: string;
-  title: string;
-  detail: string;
-  tone: "info" | "warning" | "success";
-};
 
 type DealerIncentive = {
   amount: number;

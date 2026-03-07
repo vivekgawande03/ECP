@@ -6,15 +6,20 @@ import { engines, transmissions, trims } from "@/lib/configurator/mock-data";
 import {
   calculateConfigurationPrice,
   cloneConfiguration,
+  clonePriceBreakdown,
 } from "@/lib/configurator/pricing";
 import {
-  normalizeConfigurationWithRules,
-} from "@/lib/configurator/rules";
+  cloneConfigurationVersions,
+  CURRENT_CONFIGURATION_VERSIONS,
+} from "@/lib/configurator/versioning";
 import type {
   Configuration,
+  ConfigurationEvaluation,
+  ConfigurationVersionSet,
   DealerId,
   MarketId,
   PriceBreakdown,
+  RuleNote,
   SavedQuote,
   ValidationWarning,
 } from "@/lib/configurator/types";
@@ -23,6 +28,10 @@ type ConfigurationStore = {
   configuration: Configuration;
   currentStep: number;
   warnings: ValidationWarning[];
+  ruleNotes: RuleNote[];
+  price: PriceBreakdown;
+  currentVersions: ConfigurationVersionSet;
+  isEvaluationPending: boolean;
   activeQuoteId: string | null;
   setMarket: (market: MarketId) => void;
   setDealer: (dealer: DealerId) => void;
@@ -40,6 +49,8 @@ type ConfigurationStore = {
   reset: () => void;
   setActiveQuoteId: (quoteId: string | null) => void;
   applySavedQuote: (quote: SavedQuote) => void;
+  applyEvaluation: (evaluation: ConfigurationEvaluation) => void;
+  setEvaluationPending: (isPending: boolean) => void;
   calculatePrice: () => PriceBreakdown;
   isStepValid: () => boolean;
   getCompatibleEngines: () => string[];
@@ -65,14 +76,28 @@ function createInitialConfiguration(): Configuration {
   };
 }
 
-function createConfigurationState(
+function createEditableConfigurationState(
   configuration: Configuration,
-  warnings: ValidationWarning[],
-): Pick<ConfigurationStore, "configuration" | "warnings" | "activeQuoteId"> {
+): Pick<
+  ConfigurationStore,
+  | "configuration"
+  | "warnings"
+  | "ruleNotes"
+  | "price"
+  | "currentVersions"
+  | "activeQuoteId"
+  | "isEvaluationPending"
+> {
+  const nextConfiguration = cloneConfiguration(configuration);
+
   return {
-    configuration,
-    warnings,
+    configuration: nextConfiguration,
+    warnings: [],
+    ruleNotes: [],
+    price: calculateConfigurationPrice(nextConfiguration),
+    currentVersions: cloneConfigurationVersions(CURRENT_CONFIGURATION_VERSIONS),
     activeQuoteId: null,
+    isEvaluationPending: true,
   };
 }
 
@@ -82,93 +107,61 @@ export const useConfigurationStore = create<ConfigurationStore>()(
       configuration: createInitialConfiguration(),
       currentStep: 0,
       warnings: [],
+      ruleNotes: [],
+      price: calculateConfigurationPrice(createInitialConfiguration()),
+      currentVersions: cloneConfigurationVersions(CURRENT_CONFIGURATION_VERSIONS),
+      isEvaluationPending: false,
       activeQuoteId: null,
 
       setMarket: (market) => {
-        set((state) => {
-          const result = normalizeConfigurationWithRules({
-            ...state.configuration,
-            market,
-          });
-
-          return createConfigurationState(result.configuration, result.warnings);
-        });
+        set((state) => createEditableConfigurationState({ ...state.configuration, market }));
       },
 
       setDealer: (dealer) => {
-        set((state) => {
-          const result = normalizeConfigurationWithRules({
-            ...state.configuration,
-            dealer,
-          });
-
-          return createConfigurationState(result.configuration, result.warnings);
-        });
+        set((state) => createEditableConfigurationState({ ...state.configuration, dealer }));
       },
 
       selectModel: (modelId) => {
-        set((state) => {
-          const result = normalizeConfigurationWithRules({
+        set((state) =>
+          createEditableConfigurationState({
             ...state.configuration,
             modelId,
             engineId: null,
             transmissionId: null,
             trimId: null,
-          });
-
-          return createConfigurationState(result.configuration, result.warnings);
-        });
+          }),
+        );
       },
 
       selectEngine: (engineId) => {
-        set((state) => {
-          const result = normalizeConfigurationWithRules({
+        set((state) =>
+          createEditableConfigurationState({
             ...state.configuration,
             engineId,
             transmissionId: null,
             trimId: null,
-          });
-
-          return createConfigurationState(result.configuration, result.warnings);
-        });
-      },
-
-      selectTransmission: (transmissionId) => {
-        set((state) =>
-          createConfigurationState(
-            {
-              ...state.configuration,
-              transmissionId,
-            },
-            [],
-          ),
+          }),
         );
       },
 
-      selectTrim: (trimId) => {
-        set((state) => {
-          const result = normalizeConfigurationWithRules({
-            ...state.configuration,
-            trimId,
-          });
+      selectTransmission: (transmissionId) => {
+        set((state) => createEditableConfigurationState({ ...state.configuration, transmissionId }));
+      },
 
-          return createConfigurationState(result.configuration, result.warnings);
-        });
+      selectTrim: (trimId) => {
+        set((state) => createEditableConfigurationState({ ...state.configuration, trimId }));
       },
 
       toggleExteriorOption: (optionId) => {
         set((state) => {
           const isSelected = state.configuration.exteriorOptions.includes(optionId);
 
-          return createConfigurationState(
-            {
-              ...state.configuration,
-              exteriorOptions: isSelected
-                ? state.configuration.exteriorOptions.filter((id) => id !== optionId)
-                : [...state.configuration.exteriorOptions, optionId],
-            },
-            [],
-          );
+          return createEditableConfigurationState({
+            ...state.configuration,
+            exteriorOptions: isSelected
+              ? state.configuration.exteriorOptions.filter((id) => id !== optionId)
+              : [...state.configuration.exteriorOptions, optionId],
+          });
         });
       },
 
@@ -176,41 +169,34 @@ export const useConfigurationStore = create<ConfigurationStore>()(
         set((state) => {
           const isSelected = state.configuration.interiorOptions.includes(optionId);
 
-          return createConfigurationState(
-            {
-              ...state.configuration,
-              interiorOptions: isSelected
-                ? state.configuration.interiorOptions.filter((id) => id !== optionId)
-                : [...state.configuration.interiorOptions, optionId],
-            },
-            [],
-          );
+          return createEditableConfigurationState({
+            ...state.configuration,
+            interiorOptions: isSelected
+              ? state.configuration.interiorOptions.filter((id) => id !== optionId)
+              : [...state.configuration.interiorOptions, optionId],
+          });
         });
       },
 
       selectWheels: (wheelId) => {
         set((state) =>
-          createConfigurationState(
-            {
-              ...state.configuration,
-              wheels: state.configuration.wheels === wheelId ? null : wheelId,
-            },
-            [],
-          ),
+          createEditableConfigurationState({
+            ...state.configuration,
+            wheels: state.configuration.wheels === wheelId ? null : wheelId,
+          }),
         );
       },
 
       togglePackage: (packageId) => {
         set((state) => {
           const isSelected = state.configuration.packages.includes(packageId);
-          const result = normalizeConfigurationWithRules({
+
+          return createEditableConfigurationState({
             ...state.configuration,
             packages: isSelected
               ? state.configuration.packages.filter((id) => id !== packageId)
               : [...state.configuration.packages, packageId],
           });
-
-          return createConfigurationState(result.configuration, result.warnings);
         });
       },
 
@@ -227,10 +213,16 @@ export const useConfigurationStore = create<ConfigurationStore>()(
       },
 
       reset: () => {
+        const configuration = createInitialConfiguration();
+
         set({
-          configuration: createInitialConfiguration(),
+          configuration,
           currentStep: 0,
           warnings: [],
+          ruleNotes: [],
+          price: calculateConfigurationPrice(configuration),
+          currentVersions: cloneConfigurationVersions(CURRENT_CONFIGURATION_VERSIONS),
+          isEvaluationPending: false,
           activeQuoteId: null,
         });
       },
@@ -244,11 +236,29 @@ export const useConfigurationStore = create<ConfigurationStore>()(
           configuration: cloneConfiguration(quote.configuration),
           currentStep: LAST_STEP_INDEX,
           warnings: [],
+          ruleNotes: [],
+          price: clonePriceBreakdown(quote.price),
+          isEvaluationPending: true,
           activeQuoteId: quote.id,
         });
       },
 
-      calculatePrice: () => calculateConfigurationPrice(get().configuration),
+      applyEvaluation: (evaluation) => {
+        set({
+          configuration: cloneConfiguration(evaluation.configuration),
+          warnings: evaluation.warnings.map((warning) => ({ ...warning })),
+          ruleNotes: evaluation.ruleNotes.map((note) => ({ ...note })),
+          price: clonePriceBreakdown(evaluation.price),
+          currentVersions: cloneConfigurationVersions(evaluation.versions),
+          isEvaluationPending: false,
+        });
+      },
+
+      setEvaluationPending: (isPending) => {
+        set({ isEvaluationPending: isPending });
+      },
+
+      calculatePrice: () => clonePriceBreakdown(get().price),
 
       isStepValid: () => {
         const { configuration, currentStep } = get();

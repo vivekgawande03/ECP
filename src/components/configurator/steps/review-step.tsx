@@ -14,7 +14,6 @@ import {
   getTrimById,
   getWheelById,
 } from "@/lib/configurator/mock-data";
-import { getRuleNotes } from "@/lib/configurator/rules";
 import { formatCurrency } from "@/lib/utils";
 import { useConfigurationStore } from "@/store/configuration-store";
 import { trpc } from "@/trpc/react";
@@ -22,6 +21,7 @@ import { trpc } from "@/trpc/react";
 export function ReviewStep() {
   const configuration = useConfigurationStore((state) => state.configuration);
   const warnings = useConfigurationStore((state) => state.warnings);
+  const ruleNotes = useConfigurationStore((state) => state.ruleNotes);
   const activeQuoteId = useConfigurationStore((state) => state.activeQuoteId);
   const setActiveQuoteId = useConfigurationStore((state) => state.setActiveQuoteId);
   const applySavedQuote = useConfigurationStore((state) => state.applySavedQuote);
@@ -37,7 +37,6 @@ export function ReviewStep() {
     },
   });
   const price = calculatePrice();
-  const ruleNotes = getRuleNotes(configuration);
 
   const market = getMarketById(configuration.market);
   const dealer = getDealerById(configuration.dealer);
@@ -50,10 +49,6 @@ export function ReviewStep() {
   const activeQuote =
     savedQuotes.find((quote) => quote.id === activeQuoteId) ??
     (pendingQuote?.id === activeQuoteId ? pendingQuote : null);
-  const recentQuotes = (activeQuote
-    ? [activeQuote, ...savedQuotes.filter((quote) => quote.id !== activeQuote.id)]
-    : savedQuotes
-  ).slice(0, 3);
 
   return (
     <div className="space-y-6">
@@ -74,13 +69,11 @@ export function ReviewStep() {
         </div>
       </Card>
 
-      <Card className="border-slate-600 bg-slate-700/30 p-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+      <Card className="border-slate-600 bg-slate-700/30 p-5">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-100">Quote workflow</h3>
-            <p className="mt-2 text-sm text-slate-400">
-              Save this build to the SQLite-backed demo store, then reload any persisted quote snapshot instantly.
-            </p>
+            <p className="mt-1 text-sm text-slate-400">Save this build or reload the latest saved quote.</p>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row xl:flex-shrink-0">
@@ -121,60 +114,16 @@ export function ReviewStep() {
         ) : null}
 
         {activeQuote ? (
-          <div className="mt-5 grid grid-cols-1 gap-4 border-t border-slate-700/60 pt-5 md:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-4 border-t border-slate-700/60 pt-4 md:grid-cols-3">
             <InfoBlock label="Quote ID" value={activeQuote.id} />
             <InfoBlock label="Saved at" value={formatQuoteTimestamp(activeQuote.savedAt)} />
             <InfoBlock label="Quoted total" value={formatCurrency(activeQuote.price.totalPrice)} />
           </div>
         ) : (
-          <div className="mt-5 rounded-2xl border border-dashed border-slate-600 bg-slate-800/40 px-4 py-4 text-sm text-slate-400">
+          <div className="mt-4 rounded-2xl border border-dashed border-slate-600 bg-slate-800/40 px-4 py-4 text-sm text-slate-400">
             This configuration is not saved yet. Save it now so the final screen can present a quote ID.
           </div>
         )}
-
-        {quotesQuery.isLoading && recentQuotes.length === 0 ? (
-          <div className="mt-5 rounded-2xl border border-slate-700 bg-slate-800/50 px-4 py-4 text-sm text-slate-400">
-            Loading persisted quotes...
-          </div>
-        ) : null}
-
-        {recentQuotes.length > 0 ? (
-          <div className="mt-5 space-y-3 border-t border-slate-700/60 pt-5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Recent saved quotes</p>
-
-            {recentQuotes.map((quote) => {
-              const quoteMarket = getMarketById(quote.market);
-              const quoteDealer = getDealerById(quote.dealer);
-              const isLoaded = quote.id === activeQuoteId;
-
-              return (
-                <div
-                  key={quote.id}
-                  className="flex flex-col gap-3 rounded-2xl border border-slate-700 bg-slate-800/50 px-4 py-4 md:flex-row md:items-center md:justify-between"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-white">{quote.id}</p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {quoteMarket?.name ?? quote.market} • {quoteDealer?.name ?? quote.dealer} • {formatQuoteTimestamp(quote.savedAt)}
-                    </p>
-                    <p className="mt-1 text-xs text-cyan-300">{formatCurrency(quote.price.totalPrice)}</p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {isLoaded ? (
-                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-emerald-300">
-                        Loaded
-                      </span>
-                    ) : null}
-                    <Button variant="secondary" size="sm" onClick={() => applySavedQuote(quote)}>
-                      Load quote
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
       </Card>
 
       {warnings.length > 0 || ruleNotes.length > 0 ? (

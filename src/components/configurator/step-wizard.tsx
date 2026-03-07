@@ -159,7 +159,7 @@ export function StepWizard({ steps, onComplete, isCompleting = false }: StepWiza
                                 </p>
                                 <span
                                   className={cn(
-                                    "mt-4 -mr-2 inline-flex rounded-full px-4 py-1 text-[10px] font-semibold uppercase tracking-wider",
+                                    "mt-3 -mr-2 inline-flex rounded-full px-4 py-1 text-[10px] font-semibold uppercase tracking-wider",
                                     isLoaded
                                       ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
                                       : "border border-slate-700 bg-slate-900 text-slate-300",

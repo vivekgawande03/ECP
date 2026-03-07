@@ -20,6 +20,10 @@ import { WheelsStep } from "@/components/configurator/steps/wheels-step";
 import { Button } from "@/components/ui/button";
 import { getDealerById, getMarketById } from "@/lib/configurator/mock-data";
 import type { SavedQuote } from "@/lib/configurator/types";
+import {
+  areConfigurationVersionsEqual,
+  getConfigurationVersionEntries,
+} from "@/lib/configurator/versioning";
 import { formatCurrency } from "@/lib/utils";
 import { useConfigurationStore } from "@/store/configuration-store";
 import { trpc } from "@/trpc/react";
@@ -45,11 +49,20 @@ export function CarConfiguratorPage() {
   }, []);
 
   const configuration = useConfigurationStore((state) => state.configuration);
+  const currentVersions = useConfigurationStore((state) => state.currentVersions);
   const reset = useConfigurationStore((state) => state.reset);
   const activeQuoteId = useConfigurationStore((state) => state.activeQuoteId);
   const setActiveQuoteId = useConfigurationStore((state) => state.setActiveQuoteId);
   const applySavedQuote = useConfigurationStore((state) => state.applySavedQuote);
+  const applyEvaluation = useConfigurationStore((state) => state.applyEvaluation);
+  const setEvaluationPending = useConfigurationStore((state) => state.setEvaluationPending);
   const utils = trpc.useUtils();
+  const evaluationQuery = trpc.configuration.evaluate.useQuery(
+    { configuration },
+    {
+      placeholderData: (previousData) => previousData,
+    },
+  );
   const activeQuoteQuery = trpc.quote.getById.useQuery(
     { id: activeQuoteId ?? "" },
     {
@@ -61,6 +74,19 @@ export function CarConfiguratorPage() {
   const activeQuote = completedQuote ?? activeQuoteQuery.data ?? null;
   const quoteMarket = activeQuote ? getMarketById(activeQuote.market) : null;
   const quoteDealer = activeQuote ? getDealerById(activeQuote.dealer) : null;
+  const activeQuoteIsCurrent = activeQuote
+    ? areConfigurationVersionsEqual(activeQuote.versions, currentVersions)
+    : true;
+
+  useEffect(() => {
+    if (evaluationQuery.data) {
+      applyEvaluation(evaluationQuery.data);
+    }
+  }, [applyEvaluation, evaluationQuery.data]);
+
+  useEffect(() => {
+    setEvaluationPending(evaluationQuery.isFetching);
+  }, [evaluationQuery.isFetching, setEvaluationPending]);
 
   const handleComplete = async () => {
     try {
@@ -142,6 +168,28 @@ export function CarConfiguratorPage() {
                   {formatCurrency(activeQuote.price.totalPrice)}
                 </p>
               </div>
+
+              <div className="mt-5 rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <p className="text-xs uppercase tracking-wider text-slate-400">Quote versions</p>
+                  <span
+                    className={[
+                      "rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider",
+                      activeQuoteIsCurrent
+                        ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                        : "border border-amber-500/30 bg-amber-500/10 text-amber-200",
+                    ].join(" ")}
+                  >
+                    {activeQuoteIsCurrent ? "Current versions" : "Older version"}
+                  </span>
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  {getConfigurationVersionEntries(activeQuote.versions).map(({ label, value }) => (
+                    <CompletionInfo key={label} label={label} value={value} />
+                  ))}
+                </div>
+              </div>
             </div>
           ) : null}
 
@@ -188,6 +236,11 @@ export function CarConfiguratorPage() {
           <div className="flex flex-col gap-6">
             <ConfigurationContextCard />
             <RuleExplanationPanel />
+            {evaluationQuery.error ? (
+              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                Backend validation and pricing could not be refreshed right now. Showing the last known evaluation.
+              </div>
+            ) : null}
             {createQuoteMutation.error ? (
               <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
                 We couldn’t save the quote. Please try again.

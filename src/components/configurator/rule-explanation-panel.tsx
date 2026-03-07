@@ -1,7 +1,6 @@
 "use client";
 
 import { Card } from "@/components/ui/card";
-import { getRuleNotes } from "@/lib/configurator/rules";
 import { cn } from "@/lib/utils";
 import { useConfigurationStore } from "@/store/configuration-store";
 
@@ -12,9 +11,8 @@ const toneClasses = {
 } as const;
 
 export function RuleExplanationPanel() {
-  const configuration = useConfigurationStore((state) => state.configuration);
   const warnings = useConfigurationStore((state) => state.warnings);
-  const notes = getRuleNotes(configuration);
+  const notes = useConfigurationStore((state) => state.ruleNotes);
 
   return (
     <Card className="border-slate-700 bg-slate-900/70 p-4">
