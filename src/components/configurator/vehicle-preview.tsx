@@ -1,7 +1,9 @@
 "use client";
 
+import { ConfiguratorViewer } from "@/components/configurator/3d/configurator-viewer";
 import { Card } from "@/components/ui/card";
-import { getExteriorOptionById, getModelById, getTrimById } from "@/lib/configurator/mock-data";
+import { getModelById, getTrimById } from "@/lib/configurator/mock-data";
+import { getVehicleVisualSpec } from "@/lib/configurator/3d/visual-spec";
 import { formatCurrency } from "@/lib/utils";
 import { useConfigurationStore } from "@/store/configuration-store";
 
@@ -11,61 +13,60 @@ export function VehiclePreview() {
 
   const model = configuration.modelId ? getModelById(configuration.modelId) : null;
   const trim = configuration.trimId ? getTrimById(configuration.trimId) : null;
-  const paint = configuration.exteriorOptions
-    .map((optionId) => getExteriorOptionById(optionId))
-    .find((option) => option?.type === "paint" && option.color);
-  const primaryColor = paint?.color ?? "#ffffff";
-  const totalPrice = calculatePrice();
+  const visualSpec = getVehicleVisualSpec(configuration);
+  const primaryColor = visualSpec.paint.color;
+  const price = calculatePrice();
+  const selectedOptionCount =
+    configuration.exteriorOptions.length + configuration.interiorOptions.length + (configuration.wheels ? 1 : 0);
 
   return (
-    <div className="flex h-full flex-col gap-6">
-      <Card className="relative flex flex-1 flex-col items-center justify-center overflow-hidden border-slate-700 bg-gradient-to-br from-slate-800 to-slate-900 p-8">
+    <div className="flex h-full flex-col gap-4 lg:gap-5">
+      <Card className="relative flex min-h-[420px] flex-1 flex-col overflow-hidden border-slate-700 bg-gradient-to-br from-slate-800 to-slate-900 p-5 lg:min-h-[560px] lg:p-6">
         <div
           className="absolute inset-0 opacity-15"
           style={{ background: `radial-gradient(circle, ${primaryColor} 0%, transparent 70%)` }}
         />
 
         {model ? (
-          <div className="relative z-10 flex h-full w-full flex-col items-center justify-center">
-            <div className="relative mb-8 aspect-video w-full max-w-md rounded-3xl border border-slate-700/60 bg-slate-950/40">
-              <div className="absolute inset-6 rounded-3xl opacity-15" style={{ backgroundColor: primaryColor }} />
-              <svg className="absolute inset-0 h-full w-full text-slate-300" viewBox="0 0 400 200" fill="none">
-                <path d="M 50 120 L 100 60 L 200 50 L 300 60 L 350 120 L 50 120 Z" stroke="currentColor" strokeWidth="2" fill="currentColor" fillOpacity="0.09" />
-                <circle cx="120" cy="130" r="15" stroke="currentColor" strokeWidth="2" />
-                <circle cx="280" cy="130" r="15" stroke="currentColor" strokeWidth="2" />
-                <path d="M 120 90 L 150 70 L 250 70 L 280 90 L 120 90 Z" stroke="currentColor" strokeWidth="1" fill="currentColor" fillOpacity="0.05" />
-              </svg>
-            </div>
-
-            <div className="space-y-4 text-center">
+          <div className="relative z-10 flex h-full w-full flex-col">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h2 className="text-3xl font-bold text-white">{model.name}</h2>
                 {trim ? <p className="mt-1 text-sm font-semibold text-cyan-400">{trim.name} Trim</p> : null}
               </div>
 
-              <div className="grid grid-cols-3 gap-4 border-t border-slate-700/60 pt-4 text-left">
-                <div>
-                  <p className="text-xs uppercase tracking-wider text-slate-500">Base Price</p>
-                  <p className="mt-1 text-lg font-semibold text-white">{formatCurrency(model.basePrice)}</p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-wider text-slate-500">Upgrades</p>
-                  <p className="mt-1 text-lg font-semibold text-white">
-                    {formatCurrency(Math.max(totalPrice.totalPrice - model.basePrice, 0))}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-wider text-slate-500">Paint</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="h-6 w-6 rounded border border-slate-600" style={{ backgroundColor: primaryColor }} />
-                    <span className="text-xs text-slate-300">{paint?.name ?? "Standard"}</span>
-                  </div>
+              <div className="min-w-[190px] rounded-2xl border border-cyan-500/20 bg-slate-950/40 px-4 py-3 text-right backdrop-blur-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-400">Estimated total</p>
+                <p className="mt-2 text-3xl font-bold text-cyan-400">{formatCurrency(price.totalPrice)}</p>
+              </div>
+            </div>
+
+            <div className="relative flex-1 overflow-hidden rounded-[28px] border border-slate-700/60 bg-slate-950/40 shadow-[0_24px_80px_rgba(2,6,23,0.45)]">
+              <ConfiguratorViewer modelName={model.name} visualSpec={visualSpec} />
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-500">Base price</p>
+                <p className="mt-1 text-lg font-semibold text-white">{formatCurrency(price.basePrice)}</p>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-500">Selected options</p>
+                <p className="mt-1 text-lg font-semibold text-white">{selectedOptionCount + configuration.packages.length}</p>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-500">Paint</p>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="h-6 w-6 rounded border border-slate-600" style={{ backgroundColor: primaryColor }} />
+                  <span className="text-xs text-slate-300">{visualSpec.paint.name ?? "Standard"}</span>
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-center">
+          <div className="relative z-10 flex flex-1 items-center justify-center text-center">
             <p className="text-base text-slate-300">Select a model to begin</p>
             <p className="mt-2 text-xs text-slate-500">Your live vehicle preview appears here.</p>
           </div>
@@ -73,25 +74,67 @@ export function VehiclePreview() {
       </Card>
 
       {model ? (
-        <Card className="border-slate-700 bg-slate-800 p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Estimated Total</h3>
-            <p className="text-2xl font-bold text-cyan-400">{formatCurrency(totalPrice.totalPrice)}</p>
+        <Card className="border-cyan-500/20 bg-slate-800/95 p-5">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Price Breakdown</h3>
+              <p className="mt-1 text-xs text-slate-500">Live pricing stays next to the 3D preview while you build.</p>
+            </div>
+            <p className="text-2xl font-bold text-cyan-400">{formatCurrency(price.totalPrice)}</p>
           </div>
-          <div className="space-y-2 text-sm text-slate-400">
-            <div className="flex justify-between">
-              <span>Selected options</span>
-              <span className="text-slate-100">
-                {configuration.exteriorOptions.length + configuration.interiorOptions.length + (configuration.wheels ? 1 : 0)}
+
+          <div className="space-y-2 border-b border-slate-700/80 pb-4 text-sm">
+            {price.basePrice > 0 ? <PriceBreakdownRow label="Base Price" value={price.basePrice} /> : null}
+            {price.enginePrice > 0 ? <PriceBreakdownRow label="Engine" value={price.enginePrice} /> : null}
+            {price.transmissionPrice > 0 ? <PriceBreakdownRow label="Transmission" value={price.transmissionPrice} /> : null}
+            {price.trimPrice > 0 ? <PriceBreakdownRow label="Trim" value={price.trimPrice} /> : null}
+            {price.optionsPrice > 0 ? <PriceBreakdownRow label="Options" value={price.optionsPrice} /> : null}
+            {price.packagesPrice > 0 ? <PriceBreakdownRow label="Packages" value={price.packagesPrice} /> : null}
+            {price.dealerDiscount > 0 ? (
+              <PriceBreakdownRow
+                label={price.dealerDiscountLabel ?? "Dealer incentive"}
+                value={price.dealerDiscount}
+                isDiscount
+              />
+            ) : null}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-slate-400 sm:flex sm:items-center sm:gap-6">
+              <span>
+                Options <span className="ml-1 text-slate-100">{selectedOptionCount}</span>
+              </span>
+              <span>
+                Packages <span className="ml-1 text-slate-100">{configuration.packages.length}</span>
               </span>
             </div>
-            <div className="flex justify-between">
-              <span>Packages</span>
-              <span className="text-slate-100">{configuration.packages.length}</span>
+
+            <div className="text-right">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Final total</p>
+              <p className="mt-1 text-3xl font-bold text-cyan-400">{formatCurrency(price.totalPrice)}</p>
             </div>
           </div>
         </Card>
       ) : null}
+    </div>
+  );
+}
+
+function PriceBreakdownRow({
+  label,
+  value,
+  isDiscount = false,
+}: {
+  label: string;
+  value: number;
+  isDiscount?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between text-slate-400">
+      <span>{label}</span>
+      <span className={isDiscount ? "font-semibold text-emerald-300" : "text-slate-200"}>
+        {isDiscount ? `-${formatCurrency(value)}` : formatCurrency(value)}
+      </span>
     </div>
   );
 }

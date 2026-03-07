@@ -3,10 +3,7 @@ import {
   cloneConfiguration,
   clonePriceBreakdown,
 } from "@/lib/configurator/pricing";
-import {
-  cloneConfigurationVersions,
-  CURRENT_CONFIGURATION_VERSIONS,
-} from "@/lib/configurator/versioning";
+
 import {
   getRuleNotes,
   normalizeConfigurationWithRules,
@@ -15,6 +12,7 @@ import type {
   Configuration,
   ConfigurationEvaluation,
 } from "@/lib/configurator/types";
+import { cloneConfigurationVersions, CURRENT_CONFIGURATION_VERSIONS } from "@/lib/configurator/versioning";
 
 export function evaluateConfiguration(
   configuration: Configuration,

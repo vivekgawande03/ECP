@@ -5,7 +5,6 @@ import { AiAssistantPanel } from "@/components/configurator/ai-assistant-panel";
 import { ConfigurationContextCard } from "@/components/configurator/configuration-context-card";
 import { RuleExplanationPanel } from "@/components/configurator/rule-explanation-panel";
 import { ConfiguratorLayout } from "@/components/configurator/configurator-layout";
-import { ConfigurationSummary } from "@/components/configurator/configuration-summary";
 import { StepWizard } from "@/components/configurator/step-wizard";
 import { VehiclePreview } from "@/components/configurator/vehicle-preview";
 import { EngineStep } from "@/components/configurator/steps/engine-step";
@@ -255,7 +254,6 @@ export function CarConfiguratorPage() {
             </div>
           </div>
         }
-        summary={<ConfigurationSummary />}
       />
       <AiAssistantPanel />
     </>
