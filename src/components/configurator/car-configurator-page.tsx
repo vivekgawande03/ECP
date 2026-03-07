@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AiAssistantPanel } from "@/components/configurator/ai-assistant-panel";
 import { ConfigurationContextCard } from "@/components/configurator/configuration-context-card";
@@ -193,6 +194,13 @@ export function CarConfiguratorPage() {
           ) : null}
 
           <div className="mt-8 space-y-3">
+            <Link
+              href="/order-summary"
+              className="inline-flex w-full items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-2.5 font-medium text-cyan-100 transition-colors hover:bg-cyan-500/20"
+            >
+              View Order Summary
+            </Link>
+
             <Button
               variant="outline"
               className="w-full"

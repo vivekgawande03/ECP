@@ -73,9 +73,14 @@ function getViewerAssetStatus(
 interface ConfiguratorViewerProps {
   visualSpec: VehicleVisualSpec;
   modelName: string;
+  configurationSummary?: {
+    engine?: string;
+    transmission?: string;
+    trim?: string;
+  };
 }
 
-export function ConfiguratorViewer({ visualSpec, modelName }: ConfiguratorViewerProps) {
+export function ConfiguratorViewer({ visualSpec, modelName, configurationSummary }: ConfiguratorViewerProps) {
   const [runtimeAssetState, setRuntimeAssetState] = useState<RuntimeAssetState>("idle");
 
   useEffect(() => {
@@ -116,6 +121,8 @@ export function ConfiguratorViewer({ visualSpec, modelName }: ConfiguratorViewer
   );
   const viewerTheme = useMemo(() => getVehicleViewerTheme(visualSpec.paint.color), [visualSpec.paint.color]);
   const renderGlb = viewerAssetStatus === "ready" && Boolean(visualSpec.asset.glbPath);
+  const resolvedTrimLabel = configurationSummary?.trim
+    ?? (visualSpec.trim.trimId ? formatLabel(visualSpec.trim.trimId) : undefined);
   const detailBadges = useMemo(() => {
     const badges = [
       {
@@ -123,6 +130,18 @@ export function ConfiguratorViewer({ visualSpec, modelName }: ConfiguratorViewer
         value: visualSpec.paint.name ?? "Standard",
         accent: visualSpec.paint.color,
       },
+      configurationSummary?.engine
+        ? {
+            label: "Engine",
+            value: configurationSummary.engine,
+          }
+        : null,
+      configurationSummary?.transmission
+        ? {
+            label: "Transmission",
+            value: configurationSummary.transmission,
+          }
+        : null,
       visualSpec.wheels.name
         ? {
             label: "Wheels",
@@ -138,13 +157,20 @@ export function ConfiguratorViewer({ visualSpec, modelName }: ConfiguratorViewer
     ].filter((badge): badge is { label: string; value: string; accent?: string } => Boolean(badge));
 
     return badges;
-  }, [visualSpec.packages.optionIds.length, visualSpec.paint.color, visualSpec.paint.name, visualSpec.wheels.name]);
+  }, [
+    configurationSummary?.engine,
+    configurationSummary?.transmission,
+    visualSpec.packages.optionIds.length,
+    visualSpec.paint.color,
+    visualSpec.paint.name,
+    visualSpec.wheels.name,
+  ]);
   const footerBadges = useMemo(() => {
     return [
-      visualSpec.trim.trimId
+      resolvedTrimLabel
         ? {
             label: "Trim",
-            value: formatLabel(visualSpec.trim.trimId),
+            value: resolvedTrimLabel,
           }
         : null,
       visualSpec.interior.upholsteryName
@@ -160,7 +186,7 @@ export function ConfiguratorViewer({ visualSpec, modelName }: ConfiguratorViewer
           }
         : null,
     ].filter((badge): badge is { label: string; value: string } => Boolean(badge));
-  }, [visualSpec.interior.upholsteryName, visualSpec.roof.optionIds, visualSpec.trim.trimId]);
+  }, [resolvedTrimLabel, visualSpec.interior.upholsteryName, visualSpec.roof.optionIds]);
 
   return (
     <div
@@ -175,7 +201,7 @@ export function ConfiguratorViewer({ visualSpec, modelName }: ConfiguratorViewer
         viewerTheme={viewerTheme}
       />
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3">
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-start p-3">
         <div className="rounded-full border border-slate-700/60 bg-slate-950/55 px-3 py-2 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <p className="text-[10px] px-4 font-semibold uppercase tracking-[0.28em] text-slate-400">{modelName}</p>
@@ -184,29 +210,22 @@ export function ConfiguratorViewer({ visualSpec, modelName }: ConfiguratorViewer
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="flex max-w-xs flex-wrap justify-end gap-2">
+      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-start p-3">
+        <div className="flex max-h-full w-full max-w-[18rem] flex-col items-end gap-2 overflow-y-auto pr-1">
           {detailBadges.map((badge) => (
             <div key={`${badge.label}-${badge.value}`} className="rounded-full border border-slate-700/60 bg-slate-950/50 px-3 py-1.5 text-right backdrop-blur-sm">
               <div className="flex items-center justify-end gap-2">
                 {badge.accent ? <span className="h-2.5 w-2.5 rounded-full border border-white/20" style={{ backgroundColor: badge.accent }} /> : null}
-                <p className="text-[10px] font-medium text-slate-100">{badge.label}: {badge.value}</p>
+                <p className="text-[11px] font-medium text-slate-100">{badge.label}: {badge.value}</p>
               </div>
             </div>
           ))}
-        </div>
-      </div>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/55 via-slate-950/20 to-transparent p-3">
-        <div className="flex items-end justify-between gap-3">
-          <div className="rounded-full border border-slate-700/60 bg-slate-950/45 px-3 py-1.5 text-left backdrop-blur-sm">
-            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-400">Drag to orbit • Scroll to zoom</p>
-          </div>
-
-          <div className="flex max-w-sm flex-wrap justify-end gap-2">
           {footerBadges.map((badge) => (
             <div key={`${badge.label}-${badge.value}`} className="rounded-full border border-slate-700/60 bg-slate-950/45 px-3 py-1.5 text-right backdrop-blur-sm">
-              <p className="text-[10px] font-medium text-slate-100">{badge.label}: {badge.value}</p>
+              <p className="text-[11px] font-medium text-slate-100">{badge.label}: {badge.value}</p>
             </div>
           ))}
 
@@ -216,6 +235,13 @@ export function ConfiguratorViewer({ visualSpec, modelName }: ConfiguratorViewer
               {visualSpec.missingBindings.length === 1 ? " gap" : " gaps"}
             </div>
           ) : null}
+        </div>
+      </div>
+
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/55 via-slate-950/20 to-transparent p-3">
+        <div className="flex items-end justify-start gap-3">
+          <div className="rounded-full border border-slate-700/60 bg-slate-950/45 px-3 py-1.5 text-left backdrop-blur-sm">
+            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-400">Drag to orbit • Scroll to zoom</p>
           </div>
         </div>
       </div>

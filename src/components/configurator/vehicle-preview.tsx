@@ -2,7 +2,7 @@
 
 import { ConfiguratorViewer } from "@/components/configurator/3d/configurator-viewer";
 import { Card } from "@/components/ui/card";
-import { getModelById, getTrimById } from "@/lib/configurator/mock-data";
+import { getEngineById, getModelById, getTransmissionById, getTrimById } from "@/lib/configurator/mock-data";
 import { getVehicleVisualSpec } from "@/lib/configurator/3d/visual-spec";
 import { formatCurrency } from "@/lib/utils";
 import { useConfigurationStore } from "@/store/configuration-store";
@@ -12,6 +12,8 @@ export function VehiclePreview() {
   const calculatePrice = useConfigurationStore((state) => state.calculatePrice);
 
   const model = configuration.modelId ? getModelById(configuration.modelId) : null;
+  const engine = configuration.engineId ? getEngineById(configuration.engineId) : null;
+  const transmission = configuration.transmissionId ? getTransmissionById(configuration.transmissionId) : null;
   const trim = configuration.trimId ? getTrimById(configuration.trimId) : null;
   const visualSpec = getVehicleVisualSpec(configuration);
   const primaryColor = visualSpec.paint.color;
@@ -30,27 +32,15 @@ export function VehiclePreview() {
         {model ? (
           <div className="relative z-10 flex h-full w-full flex-col">          
             <div className="relative flex-1 overflow-hidden rounded-[28px] border border-slate-700/60 bg-slate-950/40 shadow-[0_24px_80px_rgba(2,6,23,0.45)]">
-              <ConfiguratorViewer modelName={model.name} visualSpec={visualSpec} />
-            </div>
-
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500">Base price</p>
-                <p className="mt-1 text-lg font-semibold text-white">{formatCurrency(price.basePrice)}</p>
-              </div>
-
-              <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500">Selected options</p>
-                <p className="mt-1 text-lg font-semibold text-white">{selectedOptionCount + configuration.packages.length}</p>
-              </div>
-
-              <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500">Paint</p>
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="h-6 w-6 rounded border border-slate-600" style={{ backgroundColor: primaryColor }} />
-                  <span className="text-xs text-slate-300">{visualSpec.paint.name ?? "Standard"}</span>
-                </div>
-              </div>
+              <ConfiguratorViewer
+                modelName={model.name}
+                visualSpec={visualSpec}
+                configurationSummary={{
+                  engine: engine?.name,
+                  transmission: transmission?.name,
+                  trim: trim?.name,
+                }}
+              />
             </div>
           </div>
         ) : (
