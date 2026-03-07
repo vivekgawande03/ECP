@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import type { VehicleVisualSpec } from "@/lib/configurator/3d/visual-spec";
+import { getVehicleViewerTheme } from "@/lib/configurator/3d/viewer-theme";
 
 const ConfiguratorViewerCanvas = dynamic(
   () => import("./configurator-viewer-canvas").then((mod) => mod.ConfiguratorViewerCanvas),
@@ -113,6 +114,7 @@ export function ConfiguratorViewer({ visualSpec, modelName }: ConfiguratorViewer
     () => getViewerAssetStatus(visualSpec, runtimeAssetState),
     [runtimeAssetState, visualSpec],
   );
+  const viewerTheme = useMemo(() => getVehicleViewerTheme(visualSpec.paint.color), [visualSpec.paint.color]);
   const renderGlb = viewerAssetStatus === "ready" && Boolean(visualSpec.asset.glbPath);
   const detailBadges = useMemo(() => {
     const badges = [
@@ -161,18 +163,22 @@ export function ConfiguratorViewer({ visualSpec, modelName }: ConfiguratorViewer
   }, [visualSpec.interior.upholsteryName, visualSpec.roof.optionIds, visualSpec.trim.trimId]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-3xl bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.55),_rgba(2,6,23,0.95))]">
+    <div
+      className="relative h-full w-full overflow-hidden rounded-3xl"
+      style={{ background: viewerTheme.containerBackground }}
+    >
       <ConfiguratorViewerCanvas
         glbPath={visualSpec.asset.glbPath}
         onGlbError={() => setRuntimeAssetState("failed")}
         renderGlb={renderGlb}
         visualSpec={visualSpec}
+        viewerTheme={viewerTheme}
       />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3">
         <div className="rounded-full border border-slate-700/60 bg-slate-950/55 px-3 py-2 backdrop-blur-sm">
           <div className="flex items-center gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-400">{modelName}</p>
+            <p className="text-[10px] px-4 font-semibold uppercase tracking-[0.28em] text-slate-400">{modelName}</p>
             <div className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] ${availabilityToneClasses[viewerAssetStatus]}`}>
               {availabilityLabels[viewerAssetStatus]}
             </div>

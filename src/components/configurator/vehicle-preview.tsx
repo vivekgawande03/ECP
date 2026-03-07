@@ -20,7 +20,7 @@ export function VehiclePreview() {
     configuration.exteriorOptions.length + configuration.interiorOptions.length + (configuration.wheels ? 1 : 0);
 
   return (
-    <div className="flex h-full flex-col gap-4 lg:gap-5">
+    <div className="flex h-full flex-col gap-4 pb-4 lg:gap-5 lg:pb-5">
       <Card className="relative flex min-h-[420px] flex-1 flex-col overflow-hidden border-slate-700 bg-gradient-to-br from-slate-800 to-slate-900 p-5 lg:min-h-[560px] lg:p-6">
         <div
           className="absolute inset-0 opacity-15"
@@ -28,19 +28,7 @@ export function VehiclePreview() {
         />
 
         {model ? (
-          <div className="relative z-10 flex h-full w-full flex-col">
-            <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h2 className="text-3xl font-bold text-white">{model.name}</h2>
-                {trim ? <p className="mt-1 text-sm font-semibold text-cyan-400">{trim.name} Trim</p> : null}
-              </div>
-
-              <div className="min-w-[190px] rounded-2xl border border-cyan-500/20 bg-slate-950/40 px-4 py-3 text-right backdrop-blur-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-400">Estimated total</p>
-                <p className="mt-2 text-3xl font-bold text-cyan-400">{formatCurrency(price.totalPrice)}</p>
-              </div>
-            </div>
-
+          <div className="relative z-10 flex h-full w-full flex-col">          
             <div className="relative flex-1 overflow-hidden rounded-[28px] border border-slate-700/60 bg-slate-950/40 shadow-[0_24px_80px_rgba(2,6,23,0.45)]">
               <ConfiguratorViewer modelName={model.name} visualSpec={visualSpec} />
             </div>
@@ -116,6 +104,7 @@ export function VehiclePreview() {
           </div>
         </Card>
       ) : null}
+      <br/>
     </div>
   );
 }

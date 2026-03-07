@@ -6,6 +6,7 @@ import { Component, Suspense, useMemo, useRef } from "react";
 import { Box3, Vector3 } from "three";
 import type { Group, Material, Mesh, Object3D } from "three";
 import type { VehicleVisualSpec } from "@/lib/configurator/3d/visual-spec";
+import type { VehicleViewerTheme } from "@/lib/configurator/3d/viewer-theme";
 
 const DEFAULT_CAMERA = { position: [3.2, 1.8, 5.8] as [number, number, number], target: [0, 0.8, 0] as [number, number, number], fov: 34 };
 const DEFAULT_VARIANT = { body: [2.7, 0.58, 1.18] as [number, number, number], cabin: [1.4, 0.5, 1.02] as [number, number, number], cabinPosition: [0.08, 0.48, 0] as [number, number, number], rideHeight: 0.12, noseOffset: 1.12, tailOffset: -1.12 };
@@ -22,6 +23,7 @@ interface ConfiguratorViewerCanvasProps {
   onGlbError: () => void;
   renderGlb: boolean;
   visualSpec: VehicleVisualSpec;
+  viewerTheme: VehicleViewerTheme;
 }
 
 interface GlbFallbackBoundaryProps {
@@ -87,7 +89,13 @@ function updateMaterialColor(
   material: Material,
   targetNames: Set<string>,
   color: string,
-  properties?: { metalness?: number; roughness?: number },
+  properties?: {
+    clearcoat?: number;
+    clearcoatRoughness?: number;
+    envMapIntensity?: number;
+    metalness?: number;
+    roughness?: number;
+  },
 ) {
   if (!targetNames.has(material.name) || !hasColorSetter(material)) {
     return;
@@ -102,13 +110,31 @@ function updateMaterialColor(
   if (properties && "roughness" in material && typeof properties.roughness === "number") {
     material.roughness = properties.roughness;
   }
+
+  if (properties && "clearcoat" in material && typeof properties.clearcoat === "number") {
+    material.clearcoat = properties.clearcoat;
+  }
+
+  if (properties && "clearcoatRoughness" in material && typeof properties.clearcoatRoughness === "number") {
+    material.clearcoatRoughness = properties.clearcoatRoughness;
+  }
+
+  if (properties && "envMapIntensity" in material && typeof properties.envMapIntensity === "number") {
+    material.envMapIntensity = properties.envMapIntensity;
+  }
 }
 
 function updateMeshMaterials(
   material: Material | Material[],
   targetNames: Set<string>,
   color: string,
-  properties?: { metalness?: number; roughness?: number },
+  properties?: {
+    clearcoat?: number;
+    clearcoatRoughness?: number;
+    envMapIntensity?: number;
+    metalness?: number;
+    roughness?: number;
+  },
 ) {
   if (Array.isArray(material)) {
     material.forEach((entry) => updateMaterialColor(entry, targetNames, color, properties));
@@ -195,8 +221,11 @@ function applyVisualSpecToScene(scene: Object3D, visualSpec: VehicleVisualSpec) 
     object.receiveShadow = true;
 
     updateMeshMaterials(object.material, paintMaterialNames, visualSpec.paint.color, {
-      metalness: 0.6,
-      roughness: 0.28,
+      clearcoat: 1,
+      clearcoatRoughness: 0.12,
+      envMapIntensity: 1.1,
+      metalness: 0.58,
+      roughness: 0.24,
     });
 
     if (visualSpec.interior.upholsteryColor) {
@@ -295,7 +324,13 @@ function ProceduralVehicle({ visualSpec }: { visualSpec: VehicleVisualSpec }) {
   return (
     <group scale={visualSpec.asset.sceneScale ?? 1}>
       <RoundedBox args={variant.body} position={[0, bodyY, 0]} radius={0.14} smoothness={4} castShadow receiveShadow>
-        <meshStandardMaterial color={visualSpec.paint.color} metalness={0.6} roughness={0.28} />
+        <meshPhysicalMaterial
+          clearcoat={1}
+          clearcoatRoughness={0.1}
+          color={visualSpec.paint.color}
+          metalness={0.55}
+          roughness={0.2}
+        />
       </RoundedBox>
 
       <RoundedBox args={variant.cabin} position={variant.cabinPosition} radius={0.12} smoothness={4} castShadow>
@@ -363,7 +398,13 @@ function ProceduralVehicle({ visualSpec }: { visualSpec: VehicleVisualSpec }) {
   );
 }
 
-export function ConfiguratorViewerCanvas({ glbPath, onGlbError, renderGlb, visualSpec }: ConfiguratorViewerCanvasProps) {
+export function ConfiguratorViewerCanvas({
+  glbPath,
+  onGlbError,
+  renderGlb,
+  visualSpec,
+  viewerTheme,
+}: ConfiguratorViewerCanvasProps) {
   const camera = visualSpec.asset.camera ?? DEFAULT_CAMERA;
   const fallbackVehicle = <ProceduralVehicle visualSpec={visualSpec} />;
   const cameraDistance = Math.hypot(
@@ -383,8 +424,8 @@ export function ConfiguratorViewerCanvas({ glbPath, onGlbError, renderGlb, visua
 
   return (
     <Canvas shadows="percentage" dpr={[1, 1.5]} gl={{ antialias: true, alpha: true }}>
-      <color attach="background" args={["#020617"]} />
-      <fog attach="fog" args={["#020617", 5.5, 13.5]} />
+      <color attach="background" args={[viewerTheme.stageBackground]} />
+      <fog attach="fog" args={[viewerTheme.fogColor, 5.5, 13.5]} />
 
       <PerspectiveCamera makeDefault position={camera.position} fov={camera.fov} />
       <OrbitControls
@@ -402,27 +443,45 @@ export function ConfiguratorViewerCanvas({ glbPath, onGlbError, renderGlb, visua
         zoomSpeed={0.85}
       />
 
-      <ambientLight intensity={0.7} />
-      <hemisphereLight args={["#dbeafe", "#020617", 0.5]} />
-      <directionalLight castShadow intensity={2.35} position={[4.8, 5.8, 4.2]} shadow-mapSize-height={1024} shadow-mapSize-width={1024} />
-      <directionalLight intensity={1.05} position={[-4, 2.5, -4.8]} />
-      <spotLight angle={0.42} color="#67e8f9" intensity={0.55} penumbra={0.85} position={[0, 3.4, 2.8]} />
+      <ambientLight intensity={viewerTheme.ambientLightIntensity} />
+      <hemisphereLight
+        args={[
+          viewerTheme.hemisphereSkyColor,
+          viewerTheme.hemisphereGroundColor,
+          viewerTheme.hemisphereIntensity,
+        ]}
+      />
+      <directionalLight
+        castShadow
+        intensity={viewerTheme.keyLightIntensity}
+        position={[4.8, 5.8, 4.2]}
+        shadow-mapSize-height={1024}
+        shadow-mapSize-width={1024}
+      />
+      <directionalLight intensity={viewerTheme.fillLightIntensity} position={[-4, 2.5, -4.8]} />
+      <spotLight
+        angle={0.42}
+        color={viewerTheme.accentLightColor}
+        intensity={viewerTheme.accentLightIntensity}
+        penumbra={0.85}
+        position={[0, 3.4, 2.8]}
+      />
 
       <mesh receiveShadow position={[0, -0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[4.35, 64]} />
-        <meshStandardMaterial color="#0f172a" metalness={0.12} roughness={0.94} />
+        <meshStandardMaterial color={viewerTheme.floorColor} metalness={0.12} roughness={0.94} />
       </mesh>
 
       <mesh position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[2.12, 2.65, 64]} />
-        <meshBasicMaterial color="#22d3ee" transparent opacity={0.14} />
+        <meshBasicMaterial color={viewerTheme.ringColor} transparent opacity={0.16} />
       </mesh>
 
       <Suspense fallback={<PresentationVehicle>{fallbackVehicle}</PresentationVehicle>}>
         <PresentationVehicle>{renderedVehicle}</PresentationVehicle>
       </Suspense>
 
-      <ContactShadows blur={2.4} color="#020617" opacity={0.5} position={[0, -0.01, 0]} scale={5.8} />
+      <ContactShadows blur={2.4} color={viewerTheme.shadowColor} opacity={0.44} position={[0, -0.01, 0]} scale={5.8} />
     </Canvas>
   );
 }

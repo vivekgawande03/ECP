@@ -2,7 +2,12 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { engines, transmissions, trims } from "@/lib/configurator/mock-data";
+import {
+  engines,
+  getExteriorOptionById,
+  transmissions,
+  trims,
+} from "@/lib/configurator/mock-data";
 import {
   calculateConfigurationPrice,
   cloneConfiguration,
@@ -60,6 +65,7 @@ type ConfigurationStore = {
 
 const LAST_STEP_INDEX = 8;
 const CONFIGURATION_STORAGE_KEY = "ecp-configuration-store";
+const DEFAULT_PAINT_OPTION_ID = "paint-pearl-white";
 
 function createInitialConfiguration(): Configuration {
   return {
@@ -69,7 +75,7 @@ function createInitialConfiguration(): Configuration {
     engineId: null,
     transmissionId: null,
     trimId: null,
-    exteriorOptions: [],
+    exteriorOptions: [DEFAULT_PAINT_OPTION_ID],
     interiorOptions: [],
     wheels: null,
     packages: [],
@@ -129,6 +135,7 @@ export const useConfigurationStore = create<ConfigurationStore>()(
             engineId: null,
             transmissionId: null,
             trimId: null,
+            exteriorOptions: [DEFAULT_PAINT_OPTION_ID],
           }),
         );
       },
@@ -154,7 +161,24 @@ export const useConfigurationStore = create<ConfigurationStore>()(
 
       toggleExteriorOption: (optionId) => {
         set((state) => {
+          const option = getExteriorOptionById(optionId);
           const isSelected = state.configuration.exteriorOptions.includes(optionId);
+
+          if (option?.type === "paint") {
+            if (isSelected) {
+              return state;
+            }
+
+            return createEditableConfigurationState({
+              ...state.configuration,
+              exteriorOptions: [
+                optionId,
+                ...state.configuration.exteriorOptions.filter(
+                  (selectedOptionId) => getExteriorOptionById(selectedOptionId)?.type !== "paint",
+                ),
+              ],
+            });
+          }
 
           return createEditableConfigurationState({
             ...state.configuration,
