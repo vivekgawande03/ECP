@@ -53,7 +53,6 @@ export function CarConfiguratorPage() {
   const reset = useConfigurationStore((state) => state.reset);
   const activeQuoteId = useConfigurationStore((state) => state.activeQuoteId);
   const setActiveQuoteId = useConfigurationStore((state) => state.setActiveQuoteId);
-  const applySavedQuote = useConfigurationStore((state) => state.applySavedQuote);
   const applyEvaluation = useConfigurationStore((state) => state.applyEvaluation);
   const setEvaluationPending = useConfigurationStore((state) => state.setEvaluationPending);
   const utils = trpc.useUtils();
@@ -69,7 +68,6 @@ export function CarConfiguratorPage() {
       enabled: Boolean(activeQuoteId),
     },
   );
-  const latestQuoteQuery = trpc.quote.getLatest.useQuery();
   const createQuoteMutation = trpc.quote.create.useMutation();
   const activeQuote = completedQuote ?? activeQuoteQuery.data ?? null;
   const quoteMarket = activeQuote ? getMarketById(activeQuote.market) : null;
