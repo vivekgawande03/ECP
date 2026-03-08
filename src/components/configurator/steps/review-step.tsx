@@ -23,6 +23,7 @@ export function ReviewStep() {
   const warnings = useConfigurationStore((state) => state.warnings);
   const ruleNotes = useConfigurationStore((state) => state.ruleNotes);
   const activeQuoteId = useConfigurationStore((state) => state.activeQuoteId);
+  const isLoadedSavedQuote = useConfigurationStore((state) => state.isLoadedSavedQuote);
   const setActiveQuoteId = useConfigurationStore((state) => state.setActiveQuoteId);
   const applySavedQuote = useConfigurationStore((state) => state.applySavedQuote);
   const calculatePrice = useConfigurationStore((state) => state.calculatePrice);
@@ -73,32 +74,38 @@ export function ReviewStep() {
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-100">Quote workflow</h3>
-            <p className="mt-1 text-sm text-slate-400">Save this build or reload the latest saved quote.</p>
+            <p className="mt-1 text-sm text-slate-400">
+              {isLoadedSavedQuote
+                ? "This configuration was opened from a saved quote."
+                : "Save this build or reload the latest saved quote."}
+            </p>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row xl:flex-shrink-0">
-            <Button
-              className="whitespace-nowrap"
-              onClick={() => saveQuoteMutation.mutate({ configuration })}
-              disabled={saveQuoteMutation.isPending}
-            >
-              {saveQuoteMutation.isPending ? "Saving quote..." : "Save quote"}
-            </Button>
-            <Button
-              className="whitespace-nowrap"
-              variant="outline"
-              onClick={() => {
-                const latestQuote = savedQuotes[0];
+          {!isLoadedSavedQuote ? (
+            <div className="flex flex-col gap-2 sm:flex-row xl:flex-shrink-0">
+              <Button
+                className="whitespace-nowrap"
+                onClick={() => saveQuoteMutation.mutate({ configuration })}
+                disabled={saveQuoteMutation.isPending}
+              >
+                {saveQuoteMutation.isPending ? "Saving quote..." : "Save quote"}
+              </Button>
+              <Button
+                className="whitespace-nowrap"
+                variant="outline"
+                onClick={() => {
+                  const latestQuote = savedQuotes[0];
 
-                if (latestQuote) {
-                  applySavedQuote(latestQuote);
-                }
-              }}
-              disabled={savedQuotes.length === 0 || quotesQuery.isLoading}
-            >
-              Load latest quote
-            </Button>
-          </div>
+                  if (latestQuote) {
+                    applySavedQuote(latestQuote);
+                  }
+                }}
+                disabled={savedQuotes.length === 0 || quotesQuery.isLoading}
+              >
+                Load latest quote
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         {quotesQuery.error ? (
@@ -217,10 +224,12 @@ export function ReviewStep() {
             <p className="mb-1 text-xs uppercase tracking-wider text-slate-400">Estimated total</p>
             <p className="text-3xl font-bold text-cyan-400">{formatCurrency(price.totalPrice)}</p>
           </div>
-          <div className="text-right text-xs text-slate-500">
-            <p>Ready to proceed?</p>
-            <p>{activeQuote ? "Click complete to present the saved quote." : "Click complete to auto-save this build."}</p>
-          </div>
+          {!isLoadedSavedQuote ? (
+            <div className="text-right text-xs text-slate-500">
+              <p>Ready to proceed?</p>
+              <p>{activeQuote ? "Click complete to present the saved quote." : "Click complete to auto-save this build."}</p>
+            </div>
+          ) : null}
         </div>
       </Card>
     </div>

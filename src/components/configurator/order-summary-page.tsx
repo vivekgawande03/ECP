@@ -451,7 +451,7 @@ function OrderConfirmationCard({
         </svg>
       </div>
 
-      <h2 className="text-3xl font-bold text-white">Order Confirmed Successfully</h2>
+      <h2 className="text-3xl font-bold text-white">Order Confirmation</h2>
       <p className="mt-3 text-sm text-slate-400">
         The production commitment has been recorded and this saved quote is now represented as a formal order confirmation for dealer
         and factory scheduling review.

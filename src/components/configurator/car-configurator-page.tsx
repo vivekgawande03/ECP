@@ -137,7 +137,7 @@ export function CarConfiguratorPage() {
             {isLoadingCompletionQuote
               ? "We’re fetching the latest saved quote details from SQLite now."
               : activeQuote
-                ? "Your vehicle build is now packaged as a presentation-ready quote and stored in the SQLite demo database."
+                ? "Your vehicle build is now packaged as a presentation-ready quote."
                 : "Your vehicle build has been captured successfully. You can start a fresh build anytime."}
           </p>
 
@@ -198,26 +198,8 @@ export function CarConfiguratorPage() {
               href="/order-summary"
               className="inline-flex w-full items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-2.5 font-medium text-cyan-100 transition-colors hover:bg-cyan-500/20"
             >
-              Order
+             Place Order
             </Link>
-
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                const latestQuote = latestQuoteQuery.data;
-
-                if (latestQuote) {
-                  applySavedQuote(latestQuote);
-                }
-
-                setCompletedQuote(null);
-                setIsCompleted(false);
-              }}
-              disabled={!latestQuoteQuery.data || latestQuoteQuery.isLoading}
-            >
-              Load Last Saved Quote
-            </Button>
 
             <Button
               className="w-full"

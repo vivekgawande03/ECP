@@ -38,6 +38,7 @@ type ConfigurationStore = {
   currentVersions: ConfigurationVersionSet;
   isEvaluationPending: boolean;
   activeQuoteId: string | null;
+  isLoadedSavedQuote: boolean;
   setMarket: (market: MarketId) => void;
   setDealer: (dealer: DealerId) => void;
   selectModel: (modelId: string) => void;
@@ -92,6 +93,7 @@ function createEditableConfigurationState(
   | "price"
   | "currentVersions"
   | "activeQuoteId"
+  | "isLoadedSavedQuote"
   | "isEvaluationPending"
 > {
   const nextConfiguration = cloneConfiguration(configuration);
@@ -103,6 +105,7 @@ function createEditableConfigurationState(
     price: calculateConfigurationPrice(nextConfiguration),
     currentVersions: cloneConfigurationVersions(CURRENT_CONFIGURATION_VERSIONS),
     activeQuoteId: null,
+    isLoadedSavedQuote: false,
     isEvaluationPending: true,
   };
 }
@@ -118,6 +121,7 @@ export const useConfigurationStore = create<ConfigurationStore>()(
       currentVersions: cloneConfigurationVersions(CURRENT_CONFIGURATION_VERSIONS),
       isEvaluationPending: false,
       activeQuoteId: null,
+      isLoadedSavedQuote: false,
 
       setMarket: (market) => {
         set((state) => createEditableConfigurationState({ ...state.configuration, market }));
@@ -248,11 +252,12 @@ export const useConfigurationStore = create<ConfigurationStore>()(
           currentVersions: cloneConfigurationVersions(CURRENT_CONFIGURATION_VERSIONS),
           isEvaluationPending: false,
           activeQuoteId: null,
+          isLoadedSavedQuote: false,
         });
       },
 
       setActiveQuoteId: (quoteId) => {
-        set({ activeQuoteId: quoteId });
+        set({ activeQuoteId: quoteId, isLoadedSavedQuote: false });
       },
 
       applySavedQuote: (quote) => {
@@ -264,6 +269,7 @@ export const useConfigurationStore = create<ConfigurationStore>()(
           price: clonePriceBreakdown(quote.price),
           isEvaluationPending: true,
           activeQuoteId: quote.id,
+          isLoadedSavedQuote: true,
         });
       },
 
@@ -342,6 +348,7 @@ export const useConfigurationStore = create<ConfigurationStore>()(
         configuration: state.configuration,
         currentStep: state.currentStep,
         activeQuoteId: state.activeQuoteId,
+        isLoadedSavedQuote: state.isLoadedSavedQuote,
       }),
     },
   ),

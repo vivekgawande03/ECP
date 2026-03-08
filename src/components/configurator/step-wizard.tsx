@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getDealerById, getMarketById } from "@/lib/configurator/mock-data";
 import { ProgressStepper } from "@/components/configurator/progress-stepper";
@@ -28,6 +29,7 @@ export function StepWizard({ steps, onComplete, isCompleting = false }: StepWiza
   const reset = useConfigurationStore((state) => state.reset);
   const canContinue = useConfigurationStore((state) => state.isStepValid());
   const activeQuoteId = useConfigurationStore((state) => state.activeQuoteId);
+  const isLoadedSavedQuote = useConfigurationStore((state) => state.isLoadedSavedQuote);
   const applySavedQuote = useConfigurationStore((state) => state.applySavedQuote);
   const quotesQuery = trpc.quote.list.useQuery();
   const [isSavedQuotesOpen, setIsSavedQuotesOpen] = useState(false);
@@ -103,7 +105,7 @@ export function StepWizard({ steps, onComplete, isCompleting = false }: StepWiza
               </Button>
 
               {isSavedQuotesOpen ? (
-                <div className="absolute right-0 top-full z-30 mt-3 w-[400px] max-w-[calc(100vw-3rem)] rounded-2xl border border-slate-700 bg-slate-900 p-4 shadow-2xl">
+                <div className="absolute right-0 top-full z-30 mt-3 max-h-96 w-[400px] max-w-[calc(100vw-3rem)] rounded-2xl border border-slate-700 bg-slate-900 p-4 shadow-2xl overflow-y-auto">
                   <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">Saved quotes</p>
                   <p className="mt-2 text-sm text-slate-400">
                     Load one of your most recent saved configurations directly from the main header.
@@ -234,6 +236,13 @@ export function StepWizard({ steps, onComplete, isCompleting = false }: StepWiza
               >
                 Continue
               </Button>
+            ) : isLoadedSavedQuote ? (
+              <Link
+                href="/order-summary"
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-cyan-500 px-4 py-2 font-medium text-slate-950 transition-colors hover:bg-cyan-600"
+              >
+                View order summary
+              </Link>
             ) : (
               <Button
                 onClick={() => void onComplete?.()}
