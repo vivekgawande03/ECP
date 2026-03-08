@@ -32,6 +32,12 @@ export function StepWizard({ steps, onComplete, isCompleting = false }: StepWiza
   const isLoadedSavedQuote = useConfigurationStore((state) => state.isLoadedSavedQuote);
   const applySavedQuote = useConfigurationStore((state) => state.applySavedQuote);
   const quotesQuery = trpc.quote.list.useQuery();
+  const activeQuoteQuery = trpc.quote.getById.useQuery(
+    { id: activeQuoteId ?? "" },
+    {
+      enabled: Boolean(activeQuoteId),
+    },
+  );
   const [isSavedQuotesOpen, setIsSavedQuotesOpen] = useState(false);
   const savedQuotesPanelRef = useRef<HTMLDivElement | null>(null);
 
@@ -39,6 +45,9 @@ export function StepWizard({ steps, onComplete, isCompleting = false }: StepWiza
   const current = steps[currentStep];
   const isLastStep = currentStep === steps.length - 1;
   const savedQuotes = quotesQuery.data ?? [];
+  const activeQuote = savedQuotes.find((quote) => quote.id === activeQuoteId) ?? activeQuoteQuery.data ?? null;
+  const isCommittedOrder = Boolean(activeQuote?.productionCommitment);
+  const savedOrders = savedQuotes.filter((quote) => quote.productionCommitment);
   const recentQuotes = savedQuotes.slice(0, 4);
 
   useEffect(() => {
@@ -77,6 +86,16 @@ export function StepWizard({ steps, onComplete, isCompleting = false }: StepWiza
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:items-end">
+            <Link
+              href="/saved-orders"
+              className="inline-flex h-8 items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-1.5 text-xs font-medium text-emerald-100 transition-colors hover:bg-emerald-500/10"
+            >
+              Saved orders
+              <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-semibold text-slate-300">
+                {savedOrders.length}
+              </span>
+            </Link>
+
             <div className="relative" ref={savedQuotesPanelRef}>
               <Button
                 variant="outline"
@@ -241,7 +260,7 @@ export function StepWizard({ steps, onComplete, isCompleting = false }: StepWiza
                 href="/order-summary"
                 className="inline-flex h-10 items-center justify-center rounded-lg bg-cyan-500 px-4 py-2 font-medium text-slate-950 transition-colors hover:bg-cyan-600"
               >
-                View order summary
+                {isCommittedOrder ? "View order summary" : "Place order"}
               </Link>
             ) : (
               <Button
