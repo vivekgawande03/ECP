@@ -21,46 +21,58 @@ import { formatCurrency } from "@/lib/utils";
 import { useConfigurationStore } from "@/store/configuration-store";
 import { trpc } from "@/trpc/react";
 
-const ORDER_PATH_STAGES = [
-  {
-    title: "Configuration locked",
-    detail: "The selected vehicle, packages, and pricing have been captured as the current build.",
-    status: "complete" as const,
-  },
-  {
-    title: "Dealer review",
-    detail: "Sales operations confirm the quote, customer details, and market/dealer assignment.",
-    status: "complete" as const,
-  },
-  {
-    title: "Production commitment",
-    detail: "A provisional production slot is reserved for this configuration.",
-    status: "current" as const,
-  },
-  {
-    title: "Factory scheduling",
-    detail: "Plant scheduling, logistics sequencing, and supplier readiness are shown as the next stage.",
-    status: "upcoming" as const,
-  },
-  {
-    title: "Delivery planning",
-    detail: "The dealer receives the committed build window and estimated handover timeframe.",
-    status: "upcoming" as const,
-  },
-];
+function getOrderPathStages(isCommitmentSubmitted: boolean) {
+  return [
+    {
+      title: "Configuration locked",
+      detail: "The selected vehicle, packages, and pricing have been captured as the current build.",
+      status: "complete" as const,
+    },
+    {
+      title: "Dealer review",
+      detail: "Sales operations confirm the quote, customer details, and market/dealer assignment.",
+      status: "complete" as const,
+    },
+    {
+      title: "Production commitment",
+      detail: "A provisional production slot is reserved for this configuration.",
+      status: isCommitmentSubmitted ? ("complete" as const) : ("current" as const),
+    },
+    {
+      title: "Factory scheduling",
+      detail: "Plant scheduling, logistics sequencing, and supplier readiness are shown as the next stage.",
+      status: isCommitmentSubmitted ? ("current" as const) : ("upcoming" as const),
+    },
+    {
+      title: "Delivery planning",
+      detail: "The dealer receives the committed build window and estimated handover timeframe.",
+      status: "upcoming" as const,
+    },
+  ];
+}
 
 export function OrderSummaryPage() {
   const [isHydrated, setIsHydrated] = useState(useConfigurationStore.persist.hasHydrated());
   const [isCommitmentChecked, setIsCommitmentChecked] = useState(false);
-  const [isCommitmentSubmitted, setIsCommitmentSubmitted] = useState(false);
   const configuration = useConfigurationStore((state) => state.configuration);
   const activeQuoteId = useConfigurationStore((state) => state.activeQuoteId);
+  const utils = trpc.useUtils();
   const quoteQuery = trpc.quote.getById.useQuery(
     { id: activeQuoteId ?? "" },
     {
       enabled: Boolean(activeQuoteId),
     },
   );
+  const commitMutation = trpc.quote.commit.useMutation({
+    onSuccess: (quote) => {
+      void Promise.all([
+        utils.quote.getById.invalidate({ id: quote.id }),
+        utils.quote.list.invalidate(),
+        utils.quote.getLatest.invalidate(),
+      ]);
+      setIsCommitmentChecked(false);
+    },
+  });
 
   useEffect(() => {
     if (useConfigurationStore.persist.hasHydrated()) {
@@ -80,7 +92,7 @@ export function OrderSummaryPage() {
     setIsHydrated(true);
   }, []);
 
-  const activeQuote = quoteQuery.data ?? null;
+  const activeQuote = commitMutation.data ?? quoteQuery.data ?? null;
   const activeConfiguration = activeQuote?.configuration ?? configuration;
   const price = activeQuote?.price ?? calculateConfigurationPrice(activeConfiguration);
   const market = getMarketById(activeConfiguration.market);
@@ -101,6 +113,9 @@ export function OrderSummaryPage() {
   const packageSelections = activeConfiguration.packages
     .map((packageId) => getPackageById(packageId))
     .filter((pkg): pkg is NonNullable<typeof pkg> => Boolean(pkg));
+  const isCommitmentSubmitted = Boolean(activeQuote?.productionCommitment);
+  const commitmentTimestamp = activeQuote?.productionCommitment?.committedAt ?? null;
+  const orderPathStages = getOrderPathStages(isCommitmentSubmitted);
 
   const productionPlan = useMemo(() => {
     const anchorDate = activeQuote ? new Date(activeQuote.savedAt) : new Date();
@@ -118,8 +133,10 @@ export function OrderSummaryPage() {
       }),
       deliveryWindow: `${deliveryDate.toLocaleString(undefined, { month: "short" })} ${deliveryDate.getFullYear()}`,
       submittedAt: activeQuote ? formatTimestamp(activeQuote.savedAt) : "Draft configuration",
+      committedAt: commitmentTimestamp ? formatTimestamp(commitmentTimestamp) : "Pending confirmation",
+      nextMilestone: isCommitmentSubmitted ? "Factory scheduling" : "Production commitment",
     };
-  }, [activeQuote, dealer?.id, model?.id]);
+  }, [activeQuote, commitmentTimestamp, dealer?.id, isCommitmentSubmitted, model?.id]);
 
   if (!isHydrated) {
     return <OrderSummaryShell title="Loading order summary" description="Restoring your saved build details." />;
@@ -138,6 +155,43 @@ export function OrderSummaryPage() {
           Go to configurator
         </Link>
       </OrderSummaryShell>
+    );
+  }
+
+  const orderSku = buildOrderSku({
+    modelId: model.id,
+    trimId: trim?.id,
+    engineId: engine?.id,
+    transmissionId: transmission?.id,
+    wheelId: wheels?.id,
+    packageCount: packageSelections.length,
+  });
+  const orderSummary = buildOrderSummary({
+    modelName: model.name,
+    trimName: trim?.name,
+    engineName: engine?.name,
+    transmissionName: transmission?.name,
+    wheelName: wheels?.name,
+    packageCount: packageSelections.length,
+  });
+
+  if (isCommitmentSubmitted) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 px-4 py-10 text-slate-100">
+        <OrderConfirmationCard
+          orderReference={productionPlan.orderReference}
+          orderSku={orderSku}
+          committedAt={productionPlan.committedAt}
+          marketName={market?.name ?? activeConfiguration.market}
+          dealerName={dealer?.name ?? activeConfiguration.dealer}
+          orderSummary={orderSummary}
+          totalValue={formatCurrency(price.totalPrice)}
+          nextMilestone={productionPlan.nextMilestone}
+          modelName={model.name}
+          wheelsName={wheels?.name}
+          packageCount={packageSelections.length}
+        />
+      </div>
     );
   }
 
@@ -227,13 +281,13 @@ export function OrderSummaryPage() {
                   <h2 className="text-lg font-semibold text-white">Production timeline</h2>
                 </div>
                 <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-amber-200">
-                  Commitment stage
+                  {isCommitmentSubmitted ? "Scheduling ready" : "Commitment stage"}
                 </span>
               </div>
 
               <div className="mt-6 space-y-5">
-                {ORDER_PATH_STAGES.map((stage, index) => (
-                  <TimelineStage key={stage.title} index={index + 1} {...stage} />
+                {orderPathStages.map((stage, index) => (
+                  <TimelineStage key={stage.title} index={index + 1} totalStages={orderPathStages.length} {...stage} />
                 ))}
               </div>
             </Card>
@@ -246,29 +300,48 @@ export function OrderSummaryPage() {
               <div className="mt-5 space-y-4">
                 <CommitmentStat label="Production month" value={productionPlan.productionMonth} />
                 <CommitmentStat label="Delivery window" value={productionPlan.deliveryWindow} />
-                <CommitmentStat label="Allocation status" value="Reserved for dealer review" />
+                <CommitmentStat
+                  label="Allocation status"
+                  value={isCommitmentSubmitted ? "Committed to scheduling" : "Reserved for dealer review"}
+                />
                 <CommitmentStat label="Order status" value={isCommitmentSubmitted ? "Committed" : "Awaiting confirmation"} />
+                <CommitmentStat label="Committed at" value={productionPlan.committedAt} />
+                <CommitmentStat label="Next milestone" value={productionPlan.nextMilestone} />
               </div>
 
-              <label className="mt-6 flex items-start gap-3 rounded-2xl border border-slate-700 bg-slate-900/60 p-4 text-sm text-slate-300">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-950 text-cyan-400"
-                  checked={isCommitmentChecked}
-                  onChange={(event) => setIsCommitmentChecked(event.target.checked)}
-                />
-                <span>
-                  By placing this order, you commit to the vehicle configuration and production timeline shown above.
-                </span>
-              </label>
+              {!isCommitmentSubmitted ? (
+                <label className="mt-6 flex items-start gap-3 rounded-2xl border border-slate-700 bg-slate-900/60 p-4 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-950 text-cyan-400"
+                    checked={isCommitmentChecked}
+                    onChange={(event) => setIsCommitmentChecked(event.target.checked)}
+                  />
+                  <span>
+                    By placing this order, you commit to the vehicle configuration and production timeline shown above.
+                  </span>
+                </label>
+              ) : (
+                <div className="mt-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-100">
+                  Production commitment recorded and configuration locked for downstream factory scheduling.
+                </div>
+              )}
 
               <div className="mt-5 space-y-3">
                 <Button
                   className="w-full"
-                  onClick={() => setIsCommitmentSubmitted(true)}
-                  disabled={!isCommitmentChecked}
+                  onClick={() => {
+                    if (activeQuote?.id) {
+                      commitMutation.mutate({ id: activeQuote.id });
+                    }
+                  }}
+                  disabled={!isCommitmentChecked || !activeQuote?.id || commitMutation.isPending || isCommitmentSubmitted}
                 >
-                  Confirm production commitment
+                  {isCommitmentSubmitted
+                    ? "Production commitment confirmed"
+                    : commitMutation.isPending
+                      ? "Confirming production commitment..."
+                      : "Confirm production commitment"}
                 </Button>
                 <Link
                   href="/"
@@ -278,11 +351,18 @@ export function OrderSummaryPage() {
                 </Link>
               </div>
 
-              {isCommitmentSubmitted ? (
-                <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-                  Production commitment confirmed. The next visible milestone would be factory scheduling.
+              {!activeQuote?.id ? (
+                <div className="mt-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                  Save the build as a quote first so the commitment can be recorded against an order reference.
                 </div>
               ) : null}
+
+              {commitMutation.error ? (
+                <div className="mt-5 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                  We couldn’t confirm the production commitment just now. Please try again.
+                </div>
+              ) : null}
+
             </Card>
 
             <Card className="p-6">
@@ -334,6 +414,91 @@ export function OrderSummaryPage() {
   );
 }
 
+function OrderConfirmationCard({
+  orderReference,
+  orderSku,
+  committedAt,
+  marketName,
+  dealerName,
+  orderSummary,
+  totalValue,
+  nextMilestone,
+  modelName,
+  wheelsName,
+  packageCount,
+}: {
+  orderReference: string;
+  orderSku: string;
+  committedAt: string;
+  marketName: string;
+  dealerName: string;
+  orderSummary: string;
+  totalValue: string;
+  nextMilestone: string;
+  modelName: string;
+  wheelsName?: string;
+  packageCount: number;
+}) {
+  return (
+    <Card className="w-full max-w-4xl border-emerald-500/20 bg-slate-900/80 p-8 text-center shadow-2xl">
+      <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
+        <svg className="h-8 w-8" fill="currentColor" viewBox="0 0 20 20">
+          <path
+            fillRule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </div>
+
+      <h2 className="text-3xl font-bold text-white">Order Confirmed Successfully</h2>
+      <p className="mt-3 text-sm text-slate-400">
+        The production commitment has been recorded and this saved quote is now represented as a formal order confirmation for dealer
+        and factory scheduling review.
+      </p>
+
+      <div className="mt-6 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5 text-left">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ConfirmationInfo label="Order ID" value={orderReference} />
+          <ConfirmationInfo label="SKU" value={orderSku} />
+          <ConfirmationInfo label="Committed at" value={committedAt} />
+          <ConfirmationInfo label="Market" value={marketName} />
+          <ConfirmationInfo label="Dealer" value={dealerName} />
+          <ConfirmationInfo label="Order summary" value={orderSummary} />
+        </div>
+
+        <div className="mt-5 border-t border-slate-700/60 pt-4">
+          <p className="text-xs uppercase tracking-wider text-slate-400">Total order value</p>
+          <p className="mt-2 text-3xl font-bold text-cyan-400">{totalValue}</p>
+        </div>
+
+        <div className="mt-5 rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs uppercase tracking-wider text-slate-400">Next milestone</p>
+            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-emerald-300">
+              {nextMilestone}
+            </span>
+          </div>
+
+          <p className="mt-3 text-sm leading-6 text-slate-300">
+            {modelName} is now queued for dealer-to-factory scheduling with {wheelsName ?? "standard"} wheels and{" "}
+            {packageCount > 0 ? `${packageCount} selected package${packageCount === 1 ? "" : "s"}` : "standard package content"}.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <Link
+          href="/"
+          className="inline-flex w-full items-center justify-center rounded-lg border border-slate-600 px-4 py-2.5 font-medium text-slate-100 transition-colors hover:bg-slate-800"
+        >
+          Back to configurator
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
 function OrderSummaryShell({
   title,
   description,
@@ -365,11 +530,13 @@ function VehicleSpecCard({ label, value }: { label: string; value: string }) {
 
 function TimelineStage({
   index,
+  totalStages,
   title,
   detail,
   status,
 }: {
   index: number;
+  totalStages: number;
   title: string;
   detail: string;
   status: "complete" | "current" | "upcoming";
@@ -386,7 +553,7 @@ function TimelineStage({
         <div className={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold ${statusClasses[status]}`}>
           {index}
         </div>
-        {status !== "upcoming" || index !== ORDER_PATH_STAGES.length ? <div className="mt-2 h-full w-px bg-slate-700" /> : null}
+        {index !== totalStages ? <div className="mt-2 h-full w-px bg-slate-700" /> : null}
       </div>
       <div className="pb-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -450,6 +617,15 @@ function CommitmentStat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function ConfirmationInfo({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-semibold leading-6 text-white">{value}</p>
+    </div>
+  );
+}
+
 function PriceLine({
   label,
   value,
@@ -482,4 +658,62 @@ function buildDraftReference(modelId?: string, dealerId?: string) {
   const dealerCode = (dealerId ?? "dealer").replace(/[^a-z0-9]/gi, "").slice(0, 4).toUpperCase();
 
   return `${modelCode}-${dealerCode}`;
+}
+
+function buildOrderSku({
+  modelId,
+  trimId,
+  engineId,
+  transmissionId,
+  wheelId,
+  packageCount,
+}: {
+  modelId: string;
+  trimId?: string;
+  engineId?: string;
+  transmissionId?: string;
+  wheelId?: string;
+  packageCount: number;
+}) {
+  return [
+    "POC",
+    createSkuSegment(modelId, 4),
+    createSkuSegment(trimId, 3),
+    createSkuSegment(engineId, 4),
+    createSkuSegment(transmissionId, 4),
+    createSkuSegment(wheelId, 3),
+    `P${String(packageCount).padStart(2, "0")}`,
+  ].join("-");
+}
+
+function buildOrderSummary({
+  modelName,
+  trimName,
+  engineName,
+  transmissionName,
+  wheelName,
+  packageCount,
+}: {
+  modelName: string;
+  trimName?: string;
+  engineName?: string;
+  transmissionName?: string;
+  wheelName?: string;
+  packageCount: number;
+}) {
+  const packageSummary = packageCount > 0 ? `${packageCount} package${packageCount === 1 ? "" : "s"}` : "standard package set";
+
+  return [
+    modelName,
+    trimName ?? "Standard trim",
+    engineName ?? "Powertrain pending",
+    transmissionName ?? "Transmission pending",
+    wheelName ?? "Standard wheels",
+    packageSummary,
+  ].join(" · ");
+}
+
+function createSkuSegment(value: string | undefined, length: number) {
+  const normalized = (value ?? "std").replace(/[^a-z0-9]/gi, "").toUpperCase();
+  return normalized.slice(0, length).padEnd(length, "X");
 }

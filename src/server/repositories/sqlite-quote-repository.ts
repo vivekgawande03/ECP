@@ -11,6 +11,8 @@ import { CURRENT_CONFIGURATION_VERSIONS } from "@/lib/configurator/versioning";
 import { getSqliteDb } from "@/server/db";
 import type { CreateQuoteInput, QuoteRepository, StoredQuoteRecord } from "@/server/repositories/quote-repository";
 
+const PRODUCTION_COMMITTED_EVENT = "PRODUCTION_COMMITTED";
+
 const quoteRowSchema = z.object({
   id: z.string(),
   savedAt: z.union([z.string(), z.number(), z.date()]),
@@ -21,6 +23,10 @@ const quoteRowSchema = z.object({
   catalogVersion: z.string(),
   rulesVersion: z.string(),
   pricingVersion: z.string(),
+});
+
+const quoteEventRowSchema = z.object({
+  createdAt: z.union([z.string(), z.number(), z.date()]),
 });
 
 const QUOTE_VERSION_COLUMNS = [
@@ -50,7 +56,21 @@ function parseDate(value: string | number | Date): Date {
   return value instanceof Date ? value : new Date(value);
 }
 
-function parseStoredQuote(row: unknown): StoredQuoteRecord {
+function getProductionCommitment(quoteId: string): { committedAt: Date } | null {
+  const eventRow = selectLatestProductionCommitmentEventStatement.get(quoteId);
+
+  if (!eventRow) {
+    return null;
+  }
+
+  const parsedEventRow = quoteEventRowSchema.parse(eventRow);
+
+  return {
+    committedAt: parseDate(parsedEventRow.createdAt),
+  };
+}
+
+function parseStoredQuote(row: unknown, productionCommitment?: { committedAt: Date } | null): StoredQuoteRecord {
   const parsedRow = quoteRowSchema.parse(row);
 
   return {
@@ -65,6 +85,7 @@ function parseStoredQuote(row: unknown): StoredQuoteRecord {
       rulesVersion: parsedRow.rulesVersion,
       pricingVersion: parsedRow.pricingVersion,
     }),
+    productionCommitment: productionCommitment === undefined ? getProductionCommitment(parsedRow.id) : productionCommitment,
   };
 }
 
@@ -144,6 +165,12 @@ const insertQuoteEventStatement = sqlite.prepare(`
   ) VALUES (?, ?, ?, ?, ?)
 `);
 
+const updateQuoteUpdatedAtStatement = sqlite.prepare(`
+  UPDATE "Quote"
+  SET "updatedAt" = ?
+  WHERE "id" = ?
+`);
+
 const selectQuoteByIdStatement = sqlite.prepare(`
   SELECT "id", "savedAt", "market", "dealer", "configuration", "price", "catalogVersion", "rulesVersion", "pricingVersion"
   FROM "Quote"
@@ -160,6 +187,15 @@ const selectLatestQuoteStatement = sqlite.prepare(`
   SELECT "id", "savedAt", "market", "dealer", "configuration", "price", "catalogVersion", "rulesVersion", "pricingVersion"
   FROM "Quote"
   ORDER BY "savedAt" DESC
+  LIMIT 1
+`);
+
+const selectLatestProductionCommitmentEventStatement = sqlite.prepare(`
+  SELECT "createdAt"
+  FROM "QuoteEvent"
+  WHERE "quoteId" = ?
+    AND "eventType" = '${PRODUCTION_COMMITTED_EVENT}'
+  ORDER BY "createdAt" DESC
   LIMIT 1
 `);
 
@@ -204,6 +240,50 @@ export const sqliteQuoteRepository: QuoteRepository = {
     }
 
     return parseStoredQuote(createdQuote);
+  },
+
+  commitQuote(id: string): StoredQuoteRecord | null {
+    const existingQuote = selectQuoteByIdStatement.get(id);
+
+    if (!existingQuote) {
+      return null;
+    }
+
+    const existingCommitment = getProductionCommitment(id);
+
+    if (existingCommitment) {
+      return parseStoredQuote(existingQuote, existingCommitment);
+    }
+
+    const timestamp = new Date().toISOString();
+
+    sqlite.exec("BEGIN");
+
+    try {
+      updateQuoteUpdatedAtStatement.run(timestamp, id);
+      insertQuoteEventStatement.run(
+        randomUUID(),
+        id,
+        PRODUCTION_COMMITTED_EVENT,
+        JSON.stringify({ source: "order-summary" }),
+        timestamp,
+      );
+
+      sqlite.exec("COMMIT");
+    } catch (error) {
+      sqlite.exec("ROLLBACK");
+      throw error;
+    }
+
+    const committedQuote = selectQuoteByIdStatement.get(id);
+
+    if (!committedQuote) {
+      throw new Error(`Failed to load committed quote ${id}`);
+    }
+
+    return parseStoredQuote(committedQuote, {
+      committedAt: new Date(timestamp),
+    });
   },
 
   list(): StoredQuoteRecord[] {

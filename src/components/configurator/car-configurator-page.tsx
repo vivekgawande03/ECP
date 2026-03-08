@@ -198,7 +198,7 @@ export function CarConfiguratorPage() {
               href="/order-summary"
               className="inline-flex w-full items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-2.5 font-medium text-cyan-100 transition-colors hover:bg-cyan-500/20"
             >
-              View Order Summary
+              Order
             </Link>
 
             <Button

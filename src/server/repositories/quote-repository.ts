@@ -15,6 +15,7 @@ export interface StoredQuoteRecord {
   configuration: Configuration;
   price: PriceBreakdown;
   versions: ConfigurationVersionSet;
+  productionCommitment: { committedAt: Date } | null;
 }
 
 export interface CreateQuoteInput {
@@ -30,6 +31,7 @@ export interface CreateQuoteInput {
 
 export interface QuoteRepository {
   create(input: CreateQuoteInput): StoredQuoteRecord;
+  commitQuote(id: string): StoredQuoteRecord | null;
   list(): StoredQuoteRecord[];
   getById(id: string): StoredQuoteRecord | null;
   getLatest(): StoredQuoteRecord | null;

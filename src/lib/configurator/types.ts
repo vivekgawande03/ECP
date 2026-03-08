@@ -117,6 +117,10 @@ export interface ConfigurationVersionSet {
   pricingVersion: string;
 }
 
+export interface ProductionCommitment {
+  committedAt: string;
+}
+
 export interface SavedQuote {
   id: string;
   savedAt: string;
@@ -125,6 +129,7 @@ export interface SavedQuote {
   configuration: Configuration;
   price: PriceBreakdown;
   versions: ConfigurationVersionSet;
+  productionCommitment: ProductionCommitment | null;
 }
 
 export interface ValidationWarning {

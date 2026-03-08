@@ -44,7 +44,7 @@ export function VehiclePreview() {
             </div>
           </div>
         ) : (
-          <div className="relative z-10 flex flex-1 items-center justify-center text-center">
+          <div className="z-10 flex flex-1 flex-col items-center justify-center text-center">
             <p className="text-base text-slate-300">Select a model to begin</p>
             <p className="mt-2 text-xs text-slate-500">Your live vehicle preview appears here.</p>
           </div>
